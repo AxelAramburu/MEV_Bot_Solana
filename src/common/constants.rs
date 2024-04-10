@@ -1,4 +1,4 @@
-pub static PROJECT_NAME: &str = "MEV_Bot";
+pub static PROJECT_NAME: &str = "MEV_Bot_Solana";
 
 pub fn get_env(key: &str) -> String {
     std::env::var(key).unwrap_or(String::from(""))
