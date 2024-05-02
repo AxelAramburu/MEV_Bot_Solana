@@ -3,7 +3,7 @@ use crate::markets::utils::toPairString;
 use strum::IntoEnumIterator; 
 use strum_macros::EnumIter;
 
-#[derive(Debug, EnumIter)]
+#[derive(Debug, Clone, EnumIter)]
 pub enum DexLabel {
     ORCA,
     ORCA_WHIRLPOOLS,
@@ -27,19 +27,22 @@ impl DexLabel {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct Market {
     pub tokenMintA: String,
     pub tokenVaultA: String,
     pub tokenMintB: String,
     pub tokenVaultB: String,
     pub dexLabel: DexLabel,
+    pub fee: u128,
     pub id: String,
 }
 
+#[derive(Debug)]
 pub struct Dex {
-    pairToMarkets: HashMap<String, Vec<Market>>,
+    pub pairToMarkets: HashMap<String, Vec<Market>>,
     // ammCalcAddPoolMessages: AmmCalcWorkerParamMessage[];
-    label: DexLabel,
+    pub label: DexLabel,
 }
 
 impl Dex {
@@ -71,4 +74,13 @@ impl Dex {
         return all_markets;
     }
 
+}
+
+#[derive(Debug)]
+pub struct PoolItem {
+    pub mintA: String,
+    pub mintB: String,
+    pub vaultA: String,
+    pub vaultB: String,
+    pub tradeFeeRate: u128
 }

@@ -1,4 +1,5 @@
-use crate::markets::types::{Dex, DexLabel, Market};
+use crate::markets::types::{Dex, DexLabel, Market, PoolItem};
+use crate::markets::utils::toPairString;
 use tokio::net::TcpStream;
 use std::{fs::File, io::Read};
 use std::fs;
@@ -8,28 +9,20 @@ use serde::{Deserialize, Serialize};
 use reqwest::get;
 use log::info;
 
-
-pub struct PoolItem {
-    mintA: String,
-    mintB: String,
-    vaultA: String,
-    vaultB: String,
-    tradeFeeRate: u128
-}
-
+#[derive(Debug)]
 pub struct RaydiumClmmDEX {
-    dex: Dex,
-    pools: Vec<PoolItem>,
+    pub dex: Dex,
+    pub pools: Vec<PoolItem>,
 }
 impl RaydiumClmmDEX {
-    pub fn new(dex: Dex) -> Self {
+    pub fn new(mut dex: Dex) -> Self {
 
         let mut pools_vec = Vec::new();
         
         let data = fs::read_to_string("src\\markets\\cache\\raydiumclmm-markets.json").expect("LogRocket: error reading file");
         let json_value: Root  = serde_json::from_str(&data).unwrap();
 
-        for pool in json_value.data {
+        for pool in json_value.data.clone() {
             let item: PoolItem = PoolItem {
                 mintA: pool.mint_a.clone(),
                 mintB: pool.mint_b.clone(),
@@ -40,53 +33,30 @@ impl RaydiumClmmDEX {
             pools_vec.push(item);
 
             let market: Market = Market {
-                tokenMintA: pool.mint_a,
-                tokenVaultA: pool.vault_a,
-                tokenMintB: pool.mint_b,
-                tokenVaultB: pool.vault_b,
+                tokenMintA: pool.mint_a.clone(),
+                tokenVaultA: pool.vault_a.clone(),
+                tokenMintB: pool.mint_b.clone(),
+                tokenVaultB: pool.vault_b.clone(),
                 dexLabel: DexLabel::RAYDIUM_CLMM,
-                id: pool.id,
+                fee: pool.amm_config.trade_fee_rate.clone() as u128,
+                id: pool.id.clone(),
             };
+
+            let pair_string = toPairString(pool.mint_a, pool.mint_b);
+            if dex.pairToMarkets.contains_key(&pair_string.clone()) {
+                let vec_market = dex.pairToMarkets.get_mut(&pair_string).unwrap();
+                vec_market.push(market);
+            } else {
+                dex.pairToMarkets.insert(pair_string, vec![market]);
+            }
         }
 
+        info!("Raydium CLMM: {} pools founded", json_value.data.len());
         Self {
             dex: dex,
             pools: pools_vec,
         }
     }
-  //   constructor() {
-  //     super(DexLabel.RAYDIUM_CLMM);
-  //     this.pools = pools.filter((pool) => !MARKETS_TO_IGNORE.includes(pool.id));
-  //     for (const pool of this.pools) {
-  //       this.ammCalcAddPoolMessages.push({
-  //         type: 'addPool',
-  //         payload: {
-  //           poolLabel: this.label,
-  //           id: pool.id,
-  //           feeRateBps: Math.floor(pool.ammConfig.tradeFeeRate / 100),
-  //           serializableAccountInfo: toSerializableAccountInfo(
-  //             initialAccountBuffers.get(pool.id),
-  //           ),
-  //         },
-  //       });
-  
-  //       const market: Market = {
-  //         tokenMintA: pool.mintA,
-  //         tokenVaultA: pool.vaultA,
-  //         tokenMintB: pool.mintB,
-  //         tokenVaultB: pool.vaultB,
-  //         dexLabel: this.label,
-  //         id: pool.id,
-  //       };
-        
-  //       const pairString = toPairString(pool.mintA, pool.mintB);
-  //       if (this.pairToMarkets.has(pairString)) {
-  //         this.pairToMarkets.get(pairString).push(market);
-  //       } else {
-  //         this.pairToMarkets.set(pairString, [market]);
-  //       }
-  //     }
-  //   }
   }
 
 pub async fn fetch_data_raydium_clmm() -> Result<(), Box<dyn std::error::Error>> {
