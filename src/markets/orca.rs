@@ -9,8 +9,13 @@ use serde::{Deserialize, Serialize};
 use reqwest::get;
 use log::info;
 use solana_client::rpc_client::RpcClient;
+use solana_client::rpc_config::RpcAccountInfoConfig;
 use solana_program::pubkey::Pubkey;
+use solana_sdk::commitment_config::CommitmentConfig;
 use solana_sdk::program_error::ProgramError;
+use solana_account_decoder::{UiAccountData, UiAccountEncoding};
+use solana_pubsub_client::pubsub_client::PubsubClient;
+use anyhow::Result;
 
 #[derive(Debug)]
 pub struct OrcaDex {
@@ -73,6 +78,7 @@ impl OrcaDex {
                 fee: fee.clone() as u128,
                 dexLabel: DexLabel::ORCA,
                 id: from_Pubkey(pool.token_pool.clone()),
+                account_data: None,
             };
 
             let pair_string = toPairString(from_Pubkey(pool.mint_a), from_Pubkey(pool.mint_b));
@@ -105,6 +111,42 @@ pub async fn fetch_data_orca() -> Result<(), Box<dyn std::error::Error>> {
     } else {
         info!("Fetch of 'orca-markets.json' not successful: {}", response.status());
     }
+    Ok(())
+}
+
+pub async fn stream_orca(account: Pubkey) -> Result<()> {
+    let env = Env::new();
+    let url = env.wss_rpc_url.as_str();
+    let (mut account_subscription_client, account_subscription_receiver) =
+    PubsubClient::account_subscribe(
+        url,
+        &account,
+        Some(RpcAccountInfoConfig {
+            encoding: Some(UiAccountEncoding::JsonParsed),
+            data_slice: None,
+            commitment: Some(CommitmentConfig::confirmed()),
+            min_context_slot: None,
+        }),
+    )?;
+
+    loop {
+        match account_subscription_receiver.recv() {
+            Ok(response) => {
+                let data = response.value.data;
+                let bytes_slice = UiAccountData::decode(&data).unwrap();
+                // println!("account subscription data response: {:?}", data);
+                let account_data = unpack_from_slice(bytes_slice.as_slice());
+                println!("Orca Pool updated: {:?}", account);
+                println!("Data: {:?}", account_data.unwrap());
+
+            }
+            Err(e) => {
+                println!("account subscription error: {:?}", e);
+                break;
+            }
+        }
+    }
+
     Ok(())
 }
 

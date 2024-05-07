@@ -8,6 +8,7 @@ pub fn get_env(key: &str) -> String {
 pub struct Env {
     pub block_engine_url: String,
     pub rpc_url: String,
+    pub wss_rpc_url: String,
     pub geyser_url: String,
     pub geyser_access_token: String,
 
@@ -18,6 +19,7 @@ impl Env {
         Env {
             block_engine_url: get_env("BLOCK_ENGINE_URL"),
             rpc_url: get_env("RPC_URL"),
+            wss_rpc_url: get_env("WSS_RPC_URL"),
             geyser_url: get_env("GEYSER_URL"),
             geyser_access_token: get_env("GEYSER_ACCESS_TOKEN"),
 

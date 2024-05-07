@@ -1,3 +1,4 @@
+use crate::arbitrage::types::Route;
 use crate::common::constants::Env;
 use crate::markets::types::{Dex, DexLabel, Market, PoolItem};
 use crate::markets::utils::{toPairString};
@@ -10,9 +11,14 @@ use serde::de::IntoDeserializer;
 use serde::{Deserialize, Serialize};
 use reqwest::get;
 use log::info;
+use solana_account_decoder::{UiAccountData, UiAccountEncoding};
 use solana_client::rpc_client::RpcClient;
+use solana_client::rpc_config::RpcAccountInfoConfig;
 use solana_program::pubkey::Pubkey;
+use solana_sdk::commitment_config::CommitmentConfig;
 use solana_sdk::program_error::ProgramError;
+use solana_pubsub_client::pubsub_client::PubsubClient;
+use anyhow::Result;
 use solana_sdk::signer::keypair::Keypair;
 use hex::encode;
 
@@ -86,6 +92,7 @@ impl OrcaDexWhirpools {
                 fee: pool.fee_rate.clone() as u128,
                 dexLabel: DexLabel::ORCA,
                 id: from_Pubkey(pool.address.clone()),
+                account_data: None,
             };
 
             let pair_string = toPairString(from_Pubkey(pool.token_mint_a), from_Pubkey(pool.token_mint_b));
@@ -97,7 +104,7 @@ impl OrcaDexWhirpools {
             }
         }
 
-        info!("Orca: {} pools founded", &results_pools.len());
+        info!("Orca Whirpools: {} pools founded", &results_pools.len());
         Self {
             dex: dex,
             pools: pools_vec,
@@ -121,7 +128,59 @@ pub async fn fetch_data_orca_whirpools() -> Result<(), Box<dyn std::error::Error
     Ok(())
 }
 
-fn unpack_from_slice(src: &[u8]) -> Result<WhirlpoolAccount, ProgramError> {
+pub async fn stream_orca_whirpools(account: Pubkey) -> Result<()> {
+    let env = Env::new();
+    let url = env.wss_rpc_url.as_str();
+    let (mut account_subscription_client, account_subscription_receiver) =
+    PubsubClient::account_subscribe(
+        url,
+        &account,
+        Some(RpcAccountInfoConfig {
+            encoding: Some(UiAccountEncoding::JsonParsed),
+            data_slice: None,
+            commitment: Some(CommitmentConfig::confirmed()),
+            min_context_slot: None,
+        }),
+    )?;
+
+    loop {
+        match account_subscription_receiver.recv() {
+            Ok(response) => {
+                let data = response.value.data;
+                let bytes_slice = UiAccountData::decode(&data).unwrap();
+                // println!("account subscription data response: {:?}", data);
+                let account_data = unpack_from_slice(bytes_slice.as_slice());
+                println!("Orca Whirpools Pool updated: {:?}", account);
+                println!("Data: {:?}", account_data.unwrap());
+
+            }
+            Err(e) => {
+                println!("account subscription error: {:?}", e);
+                break;
+            }
+        }
+    }
+
+    Ok(())
+}
+
+// Simulate one route 
+pub fn simulate_route_orca_whirpools(route: Route, market: Market) {
+    // I want to get the data of the market i'm interested in this route
+
+    // Simulate a swap
+
+}
+
+// ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+// :::::::::::::::::::::::::::::::::::::                      UTILS                   :::::::::::::::::::::::::::::::::::::::::::::
+// ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+pub fn get_price() {
+
+}
+
+pub fn unpack_from_slice(src: &[u8]) -> Result<WhirlpoolAccount, ProgramError> {
     let address = Pubkey::new_from_array([0 as u8; 32]);    // Init to 0 and update just after
     let whirlpools_config = Pubkey::new_from_array(<[u8; 32]>::try_from(&src[8..40]).expect("Orca pools bad unpack"));
     let whirlpool_bump = [src[40]];
@@ -165,6 +224,11 @@ fn unpack_from_slice(src: &[u8]) -> Result<WhirlpoolAccount, ProgramError> {
         reward_last_updated_timestamp,
     })
 }
+
+
+// ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+// :::::::::::::::::::::::::::::::::::::                      TYPES                   :::::::::::::::::::::::::::::::::::::::::::::
+// ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

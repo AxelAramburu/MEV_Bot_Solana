@@ -1,5 +1,8 @@
 use anyhow::Result;
 use log::info;
+use MEV_Bot_Solana::arbitrage::strategies::run_arbitrage_strategy;
+use MEV_Bot_Solana::arbitrage::streams::stream_accounts_change;
+use std::str::FromStr;
 use std::sync::Arc;
 use tokio::sync::broadcast::{self, Sender};
 use tokio::task::JoinSet;
@@ -23,13 +26,9 @@ async fn main() -> Result<()> {
 
     let env = Env::new();
 
-    let rpc_client = RpcClient::new(env.rpc_url);
-    // let ws = Ws::connect(env.wss_url.clone()).await.unwrap();
-    // let provider = Arc::new(Provider::new(ws));
+    let rpc_client: RpcClient = RpcClient::new(env.rpc_url);
 
-    // let (event_sender, _): (Sender<Event>, _) = broadcast::channel(512);
-
-    let mut set = JoinSet::new();
+    let mut set: JoinSet<()> = JoinSet::new();
 
     info!("🏊 Launch pools fetching infos...");
     let dexs = load_all_pools().await;
@@ -40,15 +39,21 @@ async fn main() -> Result<()> {
         TokenInArb{address: String::from("So11111111111111111111111111111111111111112"), symbol: String::from("WSOL")}, // Base token here
         TokenInArb{address: String::from("25hAyBQfoDhfWx9ay6rarbgvWGwDdNqcHsXS3jQ3mTDJ"), symbol: String::from("MANEKI")},
         TokenInArb{address: String::from("JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN"), symbol: String::from("JUP")},
+        TokenInArb{address: String::from("EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm"), symbol: String::from("WIF")},
     ];
 
     info!("📈 Launch arbitrage process...");
-    set.spawn(calculate_arb(dexs, tokens_to_arb));
+    let (markets_arb, all_paths) = calculate_arb(dexs, tokens_to_arb).await;
     
-    // set.spawn(run_arbitrage_strategy(
-    //     provider.clone(),
-    //     event_sender.clone(),
-    // ));
+    set.spawn(run_arbitrage_strategy(markets_arb, all_paths));
+
+    //Pseudo code
+    // LOOP {
+        // 1) Get all the fresh infos, with price etc 
+        // 2) Compute all the paths and sort the better path if one exist
+    // }
+    // 3) Send transaction  
+
     
     while let Some(res) = set.join_next().await {
         info!("{:?}", res);
