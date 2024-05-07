@@ -8,6 +8,15 @@ use std::io::Write;
 use serde::{Deserialize, Serialize};
 use reqwest::get;
 use log::info;
+use solana_account_decoder::{UiAccountData, UiAccountEncoding};
+use solana_program::pubkey::Pubkey;
+use solana_sdk::commitment_config::CommitmentConfig;
+use solana_pubsub_client::pubsub_client::PubsubClient;
+use anyhow::Result;
+use solana_client::rpc_client::RpcClient;
+use solana_client::rpc_config::RpcAccountInfoConfig;
+
+use crate::common::constants::Env;
 
 #[derive(Debug)]
 pub struct RaydiumClmmDEX {
@@ -40,6 +49,7 @@ impl RaydiumClmmDEX {
                 dexLabel: DexLabel::RAYDIUM_CLMM,
                 fee: pool.amm_config.trade_fee_rate.clone() as u128,
                 id: pool.id.clone(),
+                account_data: None,
             };
 
             let pair_string = toPairString(pool.mint_a, pool.mint_b);
@@ -72,6 +82,42 @@ pub async fn fetch_data_raydium_clmm() -> Result<(), Box<dyn std::error::Error>>
     } else {
         info!("Fetch of 'raydiumclmm-markets.json'  not successful: {}", response.status());
     }
+    Ok(())
+}
+
+pub async fn stream_raydium_clmm(account: Pubkey) -> Result<()> {
+    let env = Env::new();
+    let url = env.wss_rpc_url.as_str();
+    let (mut account_subscription_client, account_subscription_receiver) =
+    PubsubClient::account_subscribe(
+        url,
+        &account,
+        Some(RpcAccountInfoConfig {
+            encoding: Some(UiAccountEncoding::JsonParsed),
+            data_slice: None,
+            commitment: Some(CommitmentConfig::confirmed()),
+            min_context_slot: None,
+        }),
+    )?;
+
+    loop {
+        match account_subscription_receiver.recv() {
+            Ok(response) => {
+                let data = response.value.data;
+                let bytes_slice = UiAccountData::decode(&data).unwrap();
+                println!("account subscription data response: {:?}", data);
+                // let account_data = unpack_from_slice(bytes_slice.as_slice());
+                // println!("Raydium CLMM Pool updated: {:?}", account);
+                // println!("Data: {:?}", account_data.unwrap());
+
+            }
+            Err(e) => {
+                println!("account subscription error: {:?}", e);
+                break;
+            }
+        }
+    }
+
     Ok(())
 }
 

@@ -36,6 +36,7 @@ pub struct Market {
     pub dexLabel: DexLabel,
     pub fee: u128,
     pub id: String,
+    pub account_data: Option<Vec<u8>>,
 }
 
 #[derive(Debug)]
