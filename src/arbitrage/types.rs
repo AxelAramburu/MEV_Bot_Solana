@@ -24,3 +24,7 @@ pub struct SwapPath {
     pub paths: Vec<Route>,
 
 }
+#[derive(Debug, Clone)]
+pub struct TokenInfos {
+    pub decimals: u8,
+}

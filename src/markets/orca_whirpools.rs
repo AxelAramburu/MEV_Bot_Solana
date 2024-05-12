@@ -1,5 +1,6 @@
-use crate::arbitrage::types::Route;
+use crate::arbitrage::types::{Route, TokenInfos};
 use crate::common::constants::Env;
+use crate::common::maths::from_x64_orca_wp;
 use crate::markets::types::{Dex, DexLabel, Market, PoolItem};
 use crate::markets::utils::{toPairString};
 use crate::common::utils::{from_str, from_Pubkey};
@@ -90,7 +91,7 @@ impl OrcaDexWhirpools {
                 tokenMintB: from_Pubkey(pool.token_mint_b.clone()),
                 tokenVaultB: from_Pubkey(pool.token_vault_b.clone()),
                 fee: pool.fee_rate.clone() as u128,
-                dexLabel: DexLabel::ORCA,
+                dexLabel: DexLabel::ORCA_WHIRLPOOLS,
                 id: from_Pubkey(pool.address.clone()),
                 account_data: None,
             };
@@ -165,9 +166,16 @@ pub async fn stream_orca_whirpools(account: Pubkey) -> Result<()> {
 }
 
 // Simulate one route 
-pub fn simulate_route_orca_whirpools(route: Route, market: Market) {
+pub fn simulate_route_orca_whirpools(route: Route, market: Market, tokens_infos: HashMap<String, TokenInfos>) {
     // I want to get the data of the market i'm interested in this route
+    // let array: &[u8] = market.account_data.unwrap().as_slice();
+    let whirpool_data = unpack_from_slice(market.account_data.unwrap().as_slice());
+    let decimals_0 = tokens_infos.get(&market.tokenMintA).unwrap().decimals;
+    let decimals_1 = tokens_infos.get(&market.tokenMintA).unwrap().decimals;
+    //Get price
+    let price = from_x64_orca_wp(whirpool_data.unwrap().sqrt_price, decimals_0, decimals_1);
 
+    println!("Price: {:?}", price);
     // Simulate a swap
 
 }
