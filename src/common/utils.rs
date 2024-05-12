@@ -1,15 +1,22 @@
 use anyhow::Result;
+use borsh::{BorshDeserialize, BorshSerialize};
 use fern::colors::{Color, ColoredLevelConfig};
 use log::LevelFilter;
 use solana_program::pubkey::Pubkey;
 use solana_sdk::bs58;
 use core::mem;
+use std::collections::HashMap;
 use thiserror::Error;
 // use rand::Rng;
 // use std::str::FromStr;
 // use std::sync::Arc;
 
-use crate::common::constants::{PROJECT_NAME};
+use crate::{arbitrage::types::{TokenInArb, TokenInfos}, common::constants::{
+    Env, PROJECT_NAME
+}};
+use solana_client::{
+    rpc_client::RpcClient,
+};
 
 // Function to format our console logs
 pub fn setup_logger() -> Result<()> {
@@ -69,4 +76,39 @@ pub fn from_Pubkey(pubkey: Pubkey) -> String {
     let pubkey_vec = bs58::encode(pubkey)
         .into_string();
     return pubkey_vec;
+}
+
+pub async fn get_tokens_infos(tokens: Vec<TokenInArb>) -> HashMap<String, TokenInfos> {
+    let env = Env::new();
+    let rpc_client = RpcClient::new(env.rpc_url);
+
+    let mut pubkeys_str: Vec<String> = Vec::new();
+    let mut pubkeys: Vec<Pubkey> = Vec::new();
+    for token in tokens {
+        pubkeys_str.push(token.address.clone());
+        pubkeys.push(from_str(token.address.clone().as_str()).unwrap());
+    }
+    let batch_results = rpc_client.get_multiple_accounts(&pubkeys).unwrap();
+
+    let mut tokens_infos: HashMap<String, TokenInfos> = HashMap::new();
+
+    for (j, account) in batch_results.iter().enumerate() {
+        let account = account.clone().unwrap();
+        let mint_layout = MintLayout::try_from_slice(&account.data).unwrap();
+
+        tokens_infos.insert(pubkeys_str[j].clone(), TokenInfos{decimals: mint_layout.decimals});
+    }
+    return tokens_infos;
+
+}
+
+#[derive(BorshDeserialize, Debug)]
+pub struct MintLayout {
+    pub mint_authority_option: u32,
+    pub mint_authority: Pubkey,
+    pub supply: u64,
+    pub decimals: u8,
+    pub is_initialized: bool,
+    pub freeze_authority_option: u32,
+    pub freeze_authority: Pubkey,
 }

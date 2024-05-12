@@ -11,7 +11,7 @@ use solana_sdk::pubkey::Pubkey;
 
 use MEV_Bot_Solana::common::constants::Env;
 use MEV_Bot_Solana::markets::pools::load_all_pools;
-use MEV_Bot_Solana::common::utils::{setup_logger, from_str};
+use MEV_Bot_Solana::common::utils::{from_str, get_tokens_infos, setup_logger};
 use MEV_Bot_Solana::arbitrage::calc_arb::calculate_arb;
 use MEV_Bot_Solana::arbitrage::types::TokenInArb;
 
@@ -42,10 +42,12 @@ async fn main() -> Result<()> {
         TokenInArb{address: String::from("EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm"), symbol: String::from("WIF")},
     ];
 
+    let tokens_infos = get_tokens_infos(tokens_to_arb.clone()).await;
+    println!("Token Infos: {:?}", tokens_infos);
     info!("📈 Launch arbitrage process...");
     let (markets_arb, all_paths) = calculate_arb(dexs, tokens_to_arb).await;
     
-    set.spawn(run_arbitrage_strategy(markets_arb, all_paths));
+    set.spawn(run_arbitrage_strategy(markets_arb, all_paths, tokens_infos));
 
     //Pseudo code
     // LOOP {
