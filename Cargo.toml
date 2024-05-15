@@ -33,7 +33,7 @@ indicatif = "0.17.5"
 ndarray = "0.15.6"
 web3 = "0.19.0"
 eyre = "0.6.12"
-reqwest = {version = "0.12.3", features = ["json"] }
+reqwest = {version = "0.12.3", features = ["blocking","json", "stream"] }
 strum = "0.26.2"
 strum_macros = "0.26.2"
 exitfailure = "0.5.1"
@@ -46,7 +46,7 @@ solana-account-decoder = "1.18.12"
 solana-pubsub-client = "1.18.12"
 base64 = "0.22.1"
 decimal = "2.1.0"
-rust_decimal = {verison = "1.35.0", features = ["maths"]}
+rust_decimal = {version = "1.35.0", features = ["maths"]}
 num = "0.4.2"
 borsh = "1.5.0"
 rust_decimal_macros = "1.34.2"

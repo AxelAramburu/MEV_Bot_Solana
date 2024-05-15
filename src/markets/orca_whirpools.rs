@@ -1,7 +1,7 @@
 use crate::arbitrage::types::{Route, TokenInfos};
 use crate::common::constants::Env;
 use crate::common::maths::from_x64_orca_wp;
-use crate::markets::types::{Dex, DexLabel, Market, PoolItem};
+use crate::markets::types::{Dex, DexLabel, Market, PoolItem, SimulationRes};
 use crate::markets::utils::{toPairString};
 use crate::common::utils::{from_str, from_Pubkey};
 use std::collections::HashMap;
@@ -166,17 +166,52 @@ pub async fn stream_orca_whirpools(account: Pubkey) -> Result<()> {
 }
 
 // Simulate one route 
-pub fn simulate_route_orca_whirpools(route: Route, market: Market, tokens_infos: HashMap<String, TokenInfos>) {
+pub async fn simulate_route_orca_whirpools(amount_in: f64, route: Route, market: Market, tokens_infos: HashMap<String, TokenInfos>) -> String {
     // I want to get the data of the market i'm interested in this route
-    // let array: &[u8] = market.account_data.unwrap().as_slice();
-    let whirpool_data = unpack_from_slice(market.account_data.unwrap().as_slice());
-    let decimals_0 = tokens_infos.get(&market.tokenMintA).unwrap().decimals;
-    let decimals_1 = tokens_infos.get(&market.tokenMintA).unwrap().decimals;
-    //Get price
-    let price = from_x64_orca_wp(whirpool_data.unwrap().sqrt_price, decimals_0, decimals_1);
+    let whirpool_data = unpack_from_slice(market.account_data.expect("No account data provided").as_slice()).unwrap();
 
-    println!("Price: {:?}", price);
+    let mut decimals_0: u8 = 0;
+    let mut decimals_1: u8 = 0;
+    
+    // if route.token_0to1 == true {
+        decimals_0 = tokens_infos.get(&market.tokenMintA).unwrap().decimals;
+        decimals_1 = tokens_infos.get(&market.tokenMintB).unwrap().decimals;
+    // } else {
+    //     decimals_0 = tokens_infos.get(&market.tokenMintB).unwrap().decimals;
+    //     decimals_1 = tokens_infos.get(&market.tokenMintA).unwrap().decimals; 
+    // }
+
+    //Get price
+    // let price = from_x64_orca_wp(whirpool_data.sqrt_price, decimals_0 as f64, decimals_1 as f64);
+    // println!("Price: {:?}", price);
+
     // Simulate a swap
+    let env = Env::new();
+    let domain = env.simulator_url;
+
+    let params = format!(
+        "tokenInKey={}&tokenInDecimals={}&tokenOutKey={}&tokenOutDecimals={}&tickSpacing={}&amountIn={}",
+        whirpool_data.token_mint_a,
+        decimals_0,
+        whirpool_data.token_mint_b,
+        decimals_1,
+        whirpool_data.tick_spacing,
+        amount_in,
+    );
+    let req_url = format!("{}orca_quote?{}", domain, params);
+    // println!("req_url: {:?}", req_url);
+
+    let mut res = reqwest::get(req_url).await.expect("Error in request to simulator");
+
+    let json_value = res.json::<SimulationRes>().await;
+    match json_value {
+        Ok(value) => {
+            println!("estimatedAmountIn: {:?}", value.estimatedAmountIn);
+            println!("estimatedAmountOut: {:?}", value.estimatedAmountOut);
+            return value.estimatedAmountOut;
+        }
+        Err(value) => { format!("value{:?}", value) }
+    }
 
 }
 

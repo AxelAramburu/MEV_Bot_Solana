@@ -1,5 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
+use log::info;
+
 use crate::markets::types::{Dex, Market};
 use crate::arbitrage::types::{TokenInArb, Route, SwapPath};
 
@@ -62,10 +64,9 @@ pub fn generate_swap_paths(all_routes: Vec<Route>, tokens: Vec<TokenInArb>) -> V
             }
         }
     }
-    // for swap_path in all_swap_paths.clone() {
-        //     println!("One swap Paths - 1Hop: {:?}", swap_path);
-    // }
-    println!("all_swap_paths Length: {}", all_swap_paths.len());
+
+    info!("1 Hop swap_paths length: {}", all_swap_paths.len());
+    let swap_paths_1hop = all_swap_paths.len();
 
     //Two hops
     // Sol -> token1 -> token2 -> Sol
@@ -87,7 +88,7 @@ pub fn generate_swap_paths(all_routes: Vec<Route>, tokens: Vec<TokenInArb>) -> V
             }
         }
     }
-    println!("all_swap_paths Length: {}", all_swap_paths.len());
+    info!("2 Hops swap_path length: {}", all_swap_paths.len() - swap_paths_1hop);
 
     //Three hops
     // Sol -> token1 -> token2 -> token3 -> Sol

@@ -11,6 +11,7 @@ pub struct Env {
     pub wss_rpc_url: String,
     pub geyser_url: String,
     pub geyser_access_token: String,
+    pub simulator_url: String,
 
 }
 
@@ -22,6 +23,7 @@ impl Env {
             wss_rpc_url: get_env("WSS_RPC_URL"),
             geyser_url: get_env("GEYSER_URL"),
             geyser_access_token: get_env("GEYSER_ACCESS_TOKEN"),
+            simulator_url: get_env("SIMULATOR_URL"),
 
         }
     }
