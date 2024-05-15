@@ -121,15 +121,66 @@ pub async fn stream_raydium_clmm(account: Pubkey) -> Result<()> {
     Ok(())
 }
 
+// // Simulate one route 
+// pub async fn simulate_route_raydium_clmm(amount_in: f64, route: Route, market: Market, tokens_infos: HashMap<String, TokenInfos>) -> String {
+//     // I want to get the data of the market i'm interested in this route
+//     let bytes_slice = UiAccountData::try_from_slice(market.account_data);
+//     let mut decimals_0: u8 = 0;
+//     let mut decimals_1: u8 = 0;
+    
+//     // if route.token_0to1 == true {
+//         decimals_0 = tokens_infos.get(&market.tokenMintA).unwrap().decimals;
+//         decimals_1 = tokens_infos.get(&market.tokenMintB).unwrap().decimals;
+//     // } else {
+//     //     decimals_0 = tokens_infos.get(&market.tokenMintB).unwrap().decimals;
+//     //     decimals_1 = tokens_infos.get(&market.tokenMintA).unwrap().decimals; 
+//     // }
+
+//     //Get price
+//     // let price = from_x64_orca_wp(whirpool_data.sqrt_price, decimals_0 as f64, decimals_1 as f64);
+//     // println!("Price: {:?}", price);
+
+//     // Simulate a swap
+//     let env = Env::new();
+//     let domain = env.simulator_url;
+
+//     let params = format!(
+//         "tokenInKey={}&tokenInDecimals={}&tokenOutKey={}&tokenOutDecimals={}&tickSpacing={}&amountIn={}",
+//         whirpool_data.token_mint_a,
+//         decimals_0,
+//         whirpool_data.token_mint_b,
+//         decimals_1,
+//         whirpool_data.tick_spacing,
+//         amount_in,
+//     );
+//     let req_url = format!("{}orca_quote?{}", domain, params);
+//     // println!("req_url: {:?}", req_url);
+
+//     let mut res = reqwest::get(req_url).await.expect("Error in request to simulator");
+
+//     let json_value = res.json::<SimulationRes>().await;
+//     match json_value {
+//         Ok(value) => {
+//             println!("estimatedAmountIn: {:?}", value.estimatedAmountIn);
+//             println!("estimatedAmountOut: {:?}", value.estimatedAmountOut);
+//             return value.estimatedAmountOut;
+//         }
+//         Err(value) => { format!("value{:?}", value) }
+//     }
+
+// }
+
+
+
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Root {
-    pub data: Vec<PoolRaydium>,
+    pub data: Vec<RaydiumCLmmPool>,
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct PoolRaydium {
+pub struct RaydiumCLmmPool {
     pub id: String,
     pub mint_program_id_a: String,
     pub mint_program_id_b: String,

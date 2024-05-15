@@ -1,5 +1,6 @@
 use std::{collections::HashMap, str::FromStr, sync::Arc};
 use crate::markets::utils::toPairString;
+use serde::{Deserialize, Serialize};
 use strum::IntoEnumIterator; 
 use strum_macros::EnumIter;
 
@@ -7,6 +8,7 @@ use strum_macros::EnumIter;
 pub enum DexLabel {
     ORCA,
     ORCA_WHIRLPOOLS,
+    RAYDIUM,
     RAYDIUM_CLMM,
 }
 
@@ -15,6 +17,7 @@ impl DexLabel {
         match self {
             DexLabel::ORCA => String::from("Orca"),
             DexLabel::ORCA_WHIRLPOOLS => String::from("Orca (Whirlpools)"),
+            DexLabel::RAYDIUM => String::from("Raydium"),
             DexLabel::RAYDIUM_CLMM => String::from("Raydium CLMM"),
         }
     }
@@ -22,6 +25,7 @@ impl DexLabel {
         match self {
             DexLabel::ORCA => String::from("https://api.orca.so/allPools"),
             DexLabel::ORCA_WHIRLPOOLS => String::from("https://api.mainnet.orca.so/v1/whirlpool/list"),
+            DexLabel::RAYDIUM => String::from("https://api.raydium.io/v2/main/pairs"),
             DexLabel::RAYDIUM_CLMM => String::from("https://api.raydium.io/v2/ammV3/ammPools"),
         }
     }
@@ -84,4 +88,10 @@ pub struct PoolItem {
     pub vaultA: String,
     pub vaultB: String,
     pub tradeFeeRate: u128
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct SimulationRes {
+    pub estimatedAmountIn: String,
+    pub estimatedAmountOut: String,
 }

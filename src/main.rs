@@ -31,7 +31,8 @@ async fn main() -> Result<()> {
     let mut set: JoinSet<()> = JoinSet::new();
 
     info!("🏊 Launch pools fetching infos...");
-    let dexs = load_all_pools().await;
+    //Params is for re-fetching pools on API or not
+    let dexs = load_all_pools(false).await;
     info!("🏊 {} Dexs are loaded", dexs.len());
     
     // The first token is the base token (here SOL)
