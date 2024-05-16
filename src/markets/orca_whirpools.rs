@@ -94,6 +94,7 @@ impl OrcaDexWhirpools {
                 dexLabel: DexLabel::ORCA_WHIRLPOOLS,
                 id: from_Pubkey(pool.address.clone()),
                 account_data: None,
+                liquidity: None,
             };
 
             let pair_string = toPairString(from_Pubkey(pool.token_mint_a), from_Pubkey(pool.token_mint_b));
@@ -206,8 +207,9 @@ pub async fn simulate_route_orca_whirpools(amount_in: f64, route: Route, market:
     let json_value = res.json::<SimulationRes>().await;
     match json_value {
         Ok(value) => {
-            println!("estimatedAmountIn: {:?}", value.estimatedAmountIn);
+            println!("estimatedAmountIn: {:?}", value.amountIn);
             println!("estimatedAmountOut: {:?}", value.estimatedAmountOut);
+            println!("estimatedMinAmountOut: {:?}", value.estimatedMinAmountOut);
             return value.estimatedAmountOut;
         }
         Err(value) => { format!("value{:?}", value) }

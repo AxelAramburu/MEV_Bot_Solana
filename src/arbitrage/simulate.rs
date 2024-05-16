@@ -16,7 +16,7 @@ pub async fn simulate_path(path: SwapPath, markets: Vec<Market>, tokens_infos: H
             DexLabel::ORCA => {
                 println!(" ⚠️⚠️ ONE ORCA POOL ");
             },
-            DexLabel::ORCA_WHIRLPOOLS=> {
+            DexLabel::ORCA_WHIRLPOOLS => {
                 println!("ORCA_WHIRLPOOLS - POOL");
                 println!("Address: {:?}", route.pool_address);
                 let amount_out = simulate_route_orca_whirpools(amount_in, route, market.unwrap(), tokens_infos.clone()).await;

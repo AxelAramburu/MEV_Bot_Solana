@@ -3,20 +3,23 @@ use std::collections::HashMap;
 use solana_sdk::pubkey::Pubkey;
 
 use crate::{arbitrage::{
-    simulate::simulate_path, streams::get_fresh_accounts_states, types::SwapPath
+    calc_arb::{calculate_arb, get_markets_arb}, simulate::simulate_path, streams::get_fresh_accounts_states, types::SwapPath
 }, common::utils::from_Pubkey};
 use crate::markets::types::{Dex, DexLabel, Market, PoolItem};
 use crate::common::utils::from_str;
 
-use super::types::TokenInfos;
+use super::types::{TokenInArb, TokenInfos};
 use log::info;
 
-pub async fn run_arbitrage_strategy(mut markets_arb: HashMap<String, Market>, all_paths: Vec<SwapPath>, tokens_infos: HashMap<String, TokenInfos>) {
+pub async fn run_arbitrage_strategy(dexs: Vec<Dex>, tokens: Vec<TokenInArb>, tokens_infos: HashMap<String, TokenInfos>) {
     info!("👀 Run Arbitrage Strategies...");
+    let markets_arb = get_markets_arb(dexs, tokens.clone()).await;
     // println!("Market Arb {:?}", markets_arb);
     let fresh_markets_arb = get_fresh_accounts_states(markets_arb.clone()).await;
+
+    let (sorted_markets_arb, all_paths) = calculate_arb(fresh_markets_arb.clone(), tokens.clone());
     // println!("AFTER Market Arb {:?}", fresh_markets_arb);
-    for path in all_paths.iter().take(2) {
+    for path in all_paths.iter().take(5) {
         // println!("👀 Swap paths: {:?}", path);
         // Get Pubkeys of the concerned markets
         let pubkeys: Vec<String> = path.paths.clone().iter().map(|route| route.clone().pool_address).collect();

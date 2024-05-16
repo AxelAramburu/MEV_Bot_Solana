@@ -23,6 +23,7 @@ async fn main() -> Result<()> {
     setup_logger().unwrap();
 
     info!("Starting MEV_Bot_Solana");
+    info!("⚠️⚠️ Liquidity is fetch to API and can be outdated on Radyium Pool");
 
     let env = Env::new();
 
@@ -46,9 +47,9 @@ async fn main() -> Result<()> {
     let tokens_infos = get_tokens_infos(tokens_to_arb.clone()).await;
     println!("Token Infos: {:?}", tokens_infos);
     info!("📈 Launch arbitrage process...");
-    let (markets_arb, all_paths) = calculate_arb(dexs, tokens_to_arb).await;
+    // let (markets_arb, all_paths) = calculate_arb(dexs, tokens_to_arb).await;
     
-    set.spawn(run_arbitrage_strategy(markets_arb, all_paths, tokens_infos));
+    set.spawn(run_arbitrage_strategy(dexs, tokens_to_arb, tokens_infos));
 
     //Pseudo code
     // LOOP {

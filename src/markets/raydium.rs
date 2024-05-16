@@ -1,10 +1,10 @@
 use crate::arbitrage::types::{Route, TokenInfos};
 use crate::common::debug::print_json_segment;
-use crate::markets::types::{Dex, DexLabel, Market, PoolItem};
+use crate::markets::types::{Dex, DexLabel, Market, PoolItem, SimulationRes};
 use crate::markets::utils::toPairString;
 use crate::common::constants::Env;
 
-use borsh::BorshDeserialize;
+use borsh::{BorshDeserialize, BorshSerialize};
 use tokio::net::TcpStream;
 use std::collections::HashMap;
 use std::{fs::File, io::Read};
@@ -36,7 +36,11 @@ impl RaydiumDEX {
         let data = fs::read_to_string("src\\markets\\cache\\raydium-markets.json").expect("LogRocket: error reading file");
         let json_value: Root  = serde_json::from_str(&data).unwrap();
 
+        
         for pool in json_value.clone() {
+            //Serialization foraccount_data
+            let mut serialized_person: Vec<u8> = Vec::new();
+            let result = BorshSerialize::serialize(&pool, &mut serialized_person).unwrap();
             let item: PoolItem = PoolItem {
                 mintA: pool.base_mint.clone(),
                 mintB: pool.quote_mint.clone(),
@@ -53,8 +57,9 @@ impl RaydiumDEX {
                 tokenVaultB: pool.quote_mint.clone(),
                 dexLabel: DexLabel::RAYDIUM,
                 fee: pool.volume7d.clone() as u128,
-                id: pool.market.clone(),
-                account_data: None,
+                id: pool.amm_id.clone(),
+                account_data: Some(serialized_person),
+                liquidity: Some(pool.liquidity as u128),
             };
 
             let pair_string = toPairString(pool.base_mint, pool.quote_mint);
@@ -157,47 +162,39 @@ pub async fn stream_raydium(account: Pubkey) -> Result<()> {
 }
 
 // Simulate one route 
+// I want to get the data of the market i'm interested in this route
 pub async fn simulate_route_raydium(amount_in: f64, route: Route, market: Market, tokens_infos: HashMap<String, TokenInfos>) -> String {
-    // I want to get the data of the market i'm interested in this route
-    let raydium_data = RaydiumPool::try_from_slice(&market.account_data.unwrap()).unwrap();
-    let mut decimals_0: u8 = 0;
-    let mut decimals_1: u8 = 0;
-    
-    // if route.token_0to1 == true {
-        decimals_0 = tokens_infos.get(&market.tokenMintA).unwrap().decimals;
-        decimals_1 = tokens_infos.get(&market.tokenMintB).unwrap().decimals;
-    // } else {
-    //     decimals_0 = tokens_infos.get(&market.tokenMintB).unwrap().decimals;
-    //     decimals_1 = tokens_infos.get(&market.tokenMintA).unwrap().decimals; 
-    // }
-
-    //Get price
-    // let price = from_x64_orca_wp(whirpool_data.sqrt_price, decimals_0 as f64, decimals_1 as f64);
-    // println!("Price: {:?}", price);
+    // println!("account_data: {:?}", &market.account_data.clone().unwrap());
+    let raydium_data = MarketStateLayoutV3::try_from_slice(&market.account_data.unwrap()).unwrap();
+    println!("raydium_data: {:?}", raydium_data);
+    let decimals_0 = tokens_infos.get(&market.tokenMintA).unwrap().decimals;
+    let decimals_1 = tokens_infos.get(&market.tokenMintB).unwrap().decimals;
 
     // Simulate a swap
     let env = Env::new();
     let domain = env.simulator_url;
 
     let params = format!(
-        "tokenInKey={}&tokenInDecimals={}&tokenOutKey={}&tokenOutDecimals={}&tickSpacing={}&amountIn={}",
-        raydium_data.base_mint,
-        decimals_0,
-        raydium_data.quote_mint,
-        decimals_1,
-        raydium_data.tick_spacing,
+        "poolKeys={}&amountIn={}&currencyIn={}&decimalsIn={}&currencyOut={}&decimalsOut={}",
+        market.id,
         amount_in,
+        market.tokenMintA,
+        decimals_0,
+        market.tokenMintB,
+        decimals_1
     );
-    let req_url = format!("{}orca_quote?{}", domain, params);
+    let req_url = format!("{}raydium_quote?{}", domain, params);
     // println!("req_url: {:?}", req_url);
+    //URL like: http://localhost:3000/raydium_quote?poolKeys=58oQChx4yWmvKdwLLZzBi4ChoCc2fqCUWBkwMihLYQo2&amountIn=1000000&currencyIn=So11111111111111111111111111111111111111112&decimalsIn=9&currencyOut=EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v&decimalsOut=6
 
     let mut res = reqwest::get(req_url).await.expect("Error in request to simulator");
 
     let json_value = res.json::<SimulationRes>().await;
     match json_value {
         Ok(value) => {
-            println!("estimatedAmountIn: {:?}", value.estimatedAmountIn);
+            println!("amountIn: {:?}", value.amountIn);
             println!("estimatedAmountOut: {:?}", value.estimatedAmountOut);
+            println!("estimatedMinAmountOut: {:?}", value.estimatedMinAmountOut);
             return value.estimatedAmountOut;
         }
         Err(value) => { format!("value{:?}", value) }
@@ -216,7 +213,7 @@ fn de_rating<'de, D: Deserializer<'de>>(deserializer: D) -> Result<f64, D::Error
 
 pub type Root = Vec<RaydiumPool>;
 
-#[derive(Default, BorshDeserialize, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default, BorshDeserialize, BorshSerialize, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RaydiumPool {
     pub name: String,
@@ -267,4 +264,31 @@ pub struct RaydiumPool {
     pub apr7d: f64,
     #[serde(deserialize_with = "de_rating")]
     pub apr30d: f64,
+}
+
+#[derive(Default, BorshDeserialize, BorshSerialize, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MarketStateLayoutV3 {
+    pub func_signature: [u8; 5],
+    pub account_flags: [u8; 8],
+    pub owner_address: Pubkey,
+    pub vault_signer_nonce: u64,
+    pub base_mint: Pubkey,
+    pub quote_mint: Pubkey,
+    pub base_vault: Pubkey,
+    pub base_deposits_total: u64,
+    pub base_fees_accrued: u64,
+    pub quote_vault: Pubkey,
+    pub quote_deposits_total: u64,
+    pub quote_fees_accrued: u64,
+    pub quote_dust_threshold: u64,
+    pub request_queue: Pubkey,
+    pub event_queue: Pubkey,
+    pub bids: Pubkey,
+    pub asks: Pubkey,
+    pub base_lot_size: u64,
+    pub quote_lot_size: u64,
+    pub fee_rate_bps: u64,
+    pub referrer_rebates_accrued: u64,
+    pub nope: [u8; 7],
 }

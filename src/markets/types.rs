@@ -41,6 +41,7 @@ pub struct Market {
     pub fee: u128,
     pub id: String,
     pub account_data: Option<Vec<u8>>,
+    pub liquidity: Option<u128>,
 }
 
 #[derive(Debug)]
@@ -92,6 +93,7 @@ pub struct PoolItem {
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct SimulationRes {
-    pub estimatedAmountIn: String,
+    pub amountIn: String,
     pub estimatedAmountOut: String,
+    pub estimatedMinAmountOut: Option<String>
 }
