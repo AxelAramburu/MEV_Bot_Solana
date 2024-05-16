@@ -79,6 +79,7 @@ impl OrcaDex {
                 dexLabel: DexLabel::ORCA,
                 id: from_Pubkey(pool.token_pool.clone()),
                 account_data: None,
+                liquidity: None,
             };
 
             let pair_string = toPairString(from_Pubkey(pool.mint_a), from_Pubkey(pool.mint_b));

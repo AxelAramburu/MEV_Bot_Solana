@@ -1,11 +1,13 @@
 use std::collections::{HashMap, HashSet};
 
+use borsh::BorshDeserialize;
 use log::info;
 
-use crate::markets::types::{Dex, Market};
+use crate::markets::raydium::{MarketStateLayoutV3, RaydiumPool};
+use crate::markets::types::{Dex, DexLabel, Market};
 use crate::arbitrage::types::{TokenInArb, Route, SwapPath};
 
-pub async fn calculate_arb(dexs: Vec<Dex>, tokens: Vec<TokenInArb>) -> (HashMap<String, Market>, Vec<SwapPath>) {
+pub async fn get_markets_arb(dexs: Vec<Dex>, tokens: Vec<TokenInArb>) -> HashMap<String, Market> {
 
     let mut markets_arb: HashMap<String, Market> = HashMap::new();
     let token_addresses: HashSet<String> = tokens.clone().into_iter().map(|token| token.address).collect();
@@ -26,11 +28,47 @@ pub async fn calculate_arb(dexs: Vec<Dex>, tokens: Vec<TokenInArb>) -> (HashMap<
         }
     }
 
-    let all_routes: Vec<Route> = compute_routes(markets_arb.clone());
+    return markets_arb;
+}
+
+pub fn calculate_arb(markets_arb: HashMap<String, Market>, tokens: Vec<TokenInArb>) -> (HashMap<String, Market>, Vec<SwapPath>) {
+
+    //Sort valuables markets: ex: Remove low liquidity markets
+    let mut sorted_markets_arb: HashMap<String, Market> = HashMap::new();
+    let mut excluded_markets_arb: Vec<String> = Vec::new();
+
+    println!("⚠️⚠️ ORCA Pool not sorted");
+    println!("⚠️⚠️ ORCA_WHIRLPOOLS Pool not sorted");
+    println!("⚠️⚠️ RAYDIUM_CLMM Pool not sorted");
+
+    for (key, market) in markets_arb.clone() {
+        match market.dexLabel {
+            DexLabel::ORCA => {
+                sorted_markets_arb.insert(key, market);
+            },
+            DexLabel::ORCA_WHIRLPOOLS => {
+                sorted_markets_arb.insert(key, market);
+            },
+            DexLabel::RAYDIUM_CLMM => {
+                sorted_markets_arb.insert(key, market);
+            },
+            DexLabel::RAYDIUM => {
+                println!("⚠️⚠️ RAYDIUM Pool not sorted");
+                if market.liquidity.unwrap() >= 2000 { //If liquidity more than 2000$
+                    sorted_markets_arb.insert(key, market);
+                } else {
+                    excluded_markets_arb.push(key);
+                }
+            },
+        }
+    }
+    info!("👌 Included Markets: {}", sorted_markets_arb.len());
+    info!("🗑️  Excluded Markets: {}", excluded_markets_arb.len());
+    let all_routes: Vec<Route> = compute_routes(sorted_markets_arb.clone());
 
     let all_paths: Vec<SwapPath> = generate_swap_paths(all_routes, tokens.clone());
 
-    return (markets_arb, all_paths);
+    return (sorted_markets_arb, all_paths);
 }
 
 //Compute routes 

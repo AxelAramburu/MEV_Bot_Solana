@@ -50,6 +50,7 @@ impl RaydiumClmmDEX {
                 fee: pool.amm_config.trade_fee_rate.clone() as u128,
                 id: pool.id.clone(),
                 account_data: None,
+                liquidity: None,
             };
 
             let pair_string = toPairString(pool.mint_a, pool.mint_b);
