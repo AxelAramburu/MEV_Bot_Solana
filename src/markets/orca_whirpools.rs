@@ -7,6 +7,7 @@ use crate::common::utils::{from_str, from_Pubkey};
 use std::collections::HashMap;
 use std::{fs, fs::File};
 use std::io::Write;
+use borsh::{BorshDeserialize, BorshSerialize};
 use eth_encode_packed::ethabi::Address;
 use serde::de::IntoDeserializer;
 use serde::{Deserialize, Serialize};
@@ -94,7 +95,7 @@ impl OrcaDexWhirpools {
                 dexLabel: DexLabel::ORCA_WHIRLPOOLS,
                 id: from_Pubkey(pool.address.clone()),
                 account_data: None,
-                liquidity: None,
+                liquidity: Some(pool.liquidity),
             };
 
             let pair_string = toPairString(from_Pubkey(pool.token_mint_a), from_Pubkey(pool.token_mint_b));
@@ -167,20 +168,36 @@ pub async fn stream_orca_whirpools(account: Pubkey) -> Result<()> {
 }
 
 // Simulate one route 
-pub async fn simulate_route_orca_whirpools(amount_in: f64, route: Route, market: Market, tokens_infos: HashMap<String, TokenInfos>) -> String {
+pub async fn simulate_route_orca_whirpools(amount_in: f64, route: Route, market: Market, tokens_infos: HashMap<String, TokenInfos>) -> (String, String) {
     // I want to get the data of the market i'm interested in this route
     let whirpool_data = unpack_from_slice(market.account_data.expect("No account data provided").as_slice()).unwrap();
 
-    let mut decimals_0: u8 = 0;
-    let mut decimals_1: u8 = 0;
-    
-    // if route.token_0to1 == true {
-        decimals_0 = tokens_infos.get(&market.tokenMintA).unwrap().decimals;
-        decimals_1 = tokens_infos.get(&market.tokenMintB).unwrap().decimals;
-    // } else {
-    //     decimals_0 = tokens_infos.get(&market.tokenMintB).unwrap().decimals;
-    //     decimals_1 = tokens_infos.get(&market.tokenMintA).unwrap().decimals; 
-    // }
+    let decimals_0 = tokens_infos.get(&market.tokenMintA).unwrap().decimals;
+    let decimals_1 = tokens_infos.get(&market.tokenMintB).unwrap().decimals;
+    let mut params: String = String::new();
+    if route.token_0to1 {
+        params = format!(
+            "poolId={}&tokenInKey={}&tokenInDecimals={}&tokenOutKey={}&tokenOutDecimals={}&tickSpacing={}&amountIn={}",
+            route.pool_address,
+            whirpool_data.token_mint_a,
+            decimals_0,
+            whirpool_data.token_mint_b,
+            decimals_1,
+            whirpool_data.tick_spacing,
+            amount_in,
+        );
+    } else {
+        params = format!(
+            "poolId={}&tokenInKey={}&tokenInDecimals={}&tokenOutKey={}&tokenOutDecimals={}&tickSpacing={}&amountIn={}",
+            route.pool_address,
+            whirpool_data.token_mint_b,
+            decimals_1,
+            whirpool_data.token_mint_a,
+            decimals_0,
+            whirpool_data.tick_spacing,
+            amount_in,
+        );
+    }
 
     //Get price
     // let price = from_x64_orca_wp(whirpool_data.sqrt_price, decimals_0 as f64, decimals_1 as f64);
@@ -190,15 +207,6 @@ pub async fn simulate_route_orca_whirpools(amount_in: f64, route: Route, market:
     let env = Env::new();
     let domain = env.simulator_url;
 
-    let params = format!(
-        "tokenInKey={}&tokenInDecimals={}&tokenOutKey={}&tokenOutDecimals={}&tickSpacing={}&amountIn={}",
-        whirpool_data.token_mint_a,
-        decimals_0,
-        whirpool_data.token_mint_b,
-        decimals_1,
-        whirpool_data.tick_spacing,
-        amount_in,
-    );
     let req_url = format!("{}orca_quote?{}", domain, params);
     // println!("req_url: {:?}", req_url);
 
@@ -209,10 +217,10 @@ pub async fn simulate_route_orca_whirpools(amount_in: f64, route: Route, market:
         Ok(value) => {
             println!("estimatedAmountIn: {:?}", value.amountIn);
             println!("estimatedAmountOut: {:?}", value.estimatedAmountOut);
-            println!("estimatedMinAmountOut: {:?}", value.estimatedMinAmountOut);
-            return value.estimatedAmountOut;
+            println!("estimatedMinAmountOut: {:?}", value.estimatedMinAmountOut.clone().unwrap());
+            return (value.estimatedAmountOut, value.estimatedMinAmountOut.unwrap());
         }
-        Err(value) => { format!("value{:?}", value) }
+        Err(value) => { (format!("value{:?}", value), format!("value{:?}", value)) }
     }
 
 }
@@ -347,7 +355,7 @@ pub struct RewardApr {
     pub month: Option<f64>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, BorshDeserialize, BorshSerialize)]
 pub struct WhirlpoolAccount {
 
     pub address: Pubkey,
