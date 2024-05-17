@@ -65,22 +65,11 @@ pub async fn get_fresh_accounts_states(mut accounts: HashMap<String, Market>) ->
             // println!("WhirpoolAccount: {:?}", data);
             let account_data = account.data;
 
-            // //Cleaning markets for better accuracy
-            // match markets_vec[j].dexLabel {
-            //     DexLabel::ORCA => {},
-            //     DexLabel::ORCA_WHIRLPOOLS => {
-            //         let whirpool_data = unpack_from_slice(account_data.as_slice()).unwrap();
-            //         if whirpool_data.liquidity == 0 {
-            //             continue;
-            //         }
-            //     },
-            //     DexLabel::RAYDIUM_CLMM => {},
-            // }
-
             markets_vec[j].account_data = Some(account_data);
             accounts.insert(key_vec[j].clone(), markets_vec[j].clone());
         }
     }
+
     return accounts;
 }
 

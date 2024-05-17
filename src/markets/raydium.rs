@@ -56,7 +56,7 @@ impl RaydiumDEX {
                 tokenMintB: pool.quote_mint.clone(),
                 tokenVaultB: pool.quote_mint.clone(),
                 dexLabel: DexLabel::RAYDIUM,
-                fee: pool.volume7d.clone() as u128,
+                fee: pool.volume7d.clone() as u128,         //Not accurate, change this
                 id: pool.amm_id.clone(),
                 account_data: Some(serialized_person),
                 liquidity: Some(pool.liquidity as u128),
@@ -163,26 +163,41 @@ pub async fn stream_raydium(account: Pubkey) -> Result<()> {
 
 // Simulate one route 
 // I want to get the data of the market i'm interested in this route
-pub async fn simulate_route_raydium(amount_in: f64, route: Route, market: Market, tokens_infos: HashMap<String, TokenInfos>) -> String {
+pub async fn simulate_route_raydium(amount_in: f64, route: Route, market: Market, tokens_infos: HashMap<String, TokenInfos>) -> (String, String) {
     // println!("account_data: {:?}", &market.account_data.clone().unwrap());
-    let raydium_data = MarketStateLayoutV3::try_from_slice(&market.account_data.unwrap()).unwrap();
-    println!("raydium_data: {:?}", raydium_data);
+    // println!("market: {:?}", market.clone());
+    let raydium_data = AmmInfo::try_from_slice(&market.account_data.unwrap()).unwrap();
+    // println!("raydium_data: {:?}", raydium_data);
     let decimals_0 = tokens_infos.get(&market.tokenMintA).unwrap().decimals;
     let decimals_1 = tokens_infos.get(&market.tokenMintB).unwrap().decimals;
+    let mut params: String = String::new();
 
+    let amount_in_uint = amount_in as u64;
+    if route.token_0to1 {
+        params = format!(
+            "poolKeys={}&amountIn={}&currencyIn={}&decimalsIn={}&currencyOut={}&decimalsOut={}",
+            market.id,
+            amount_in_uint,
+            market.tokenMintA,
+            decimals_0,
+            market.tokenMintB,
+            decimals_1
+        );
+    } else {
+        params = format!(
+            "poolKeys={}&amountIn={}&currencyIn={}&decimalsIn={}&currencyOut={}&decimalsOut={}",
+            market.id,
+            amount_in_uint,
+            market.tokenMintB,
+            decimals_1,
+            market.tokenMintA,
+            decimals_0
+        );
+    }
     // Simulate a swap
     let env = Env::new();
     let domain = env.simulator_url;
 
-    let params = format!(
-        "poolKeys={}&amountIn={}&currencyIn={}&decimalsIn={}&currencyOut={}&decimalsOut={}",
-        market.id,
-        amount_in,
-        market.tokenMintA,
-        decimals_0,
-        market.tokenMintB,
-        decimals_1
-    );
     let req_url = format!("{}raydium_quote?{}", domain, params);
     // println!("req_url: {:?}", req_url);
     //URL like: http://localhost:3000/raydium_quote?poolKeys=58oQChx4yWmvKdwLLZzBi4ChoCc2fqCUWBkwMihLYQo2&amountIn=1000000&currencyIn=So11111111111111111111111111111111111111112&decimalsIn=9&currencyOut=EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v&decimalsOut=6
@@ -194,10 +209,10 @@ pub async fn simulate_route_raydium(amount_in: f64, route: Route, market: Market
         Ok(value) => {
             println!("amountIn: {:?}", value.amountIn);
             println!("estimatedAmountOut: {:?}", value.estimatedAmountOut);
-            println!("estimatedMinAmountOut: {:?}", value.estimatedMinAmountOut);
-            return value.estimatedAmountOut;
+            println!("estimatedMinAmountOut: {:?}", value.estimatedMinAmountOut.clone().unwrap());
+            return (value.estimatedAmountOut, value.estimatedMinAmountOut.unwrap());
         }
-        Err(value) => { format!("value{:?}", value) }
+        Err(value) => { (format!("value{:?}", value), format!("value{:?}", value)) }
     }
 
 }
@@ -291,4 +306,137 @@ pub struct MarketStateLayoutV3 {
     pub fee_rate_bps: u64,
     pub referrer_rebates_accrued: u64,
     pub nope: [u8; 7],
+}
+
+//// Struct for Account Data on get_multiples_account
+#[cfg_attr(feature = "client", derive(Debug))]
+#[repr(C)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, BorshDeserialize, BorshSerialize)]
+pub struct AmmInfo {
+    /// Initialized status.
+    pub status: u64,
+    /// Nonce used in program address.
+    /// The program address is created deterministically with the nonce,
+    /// amm program id, and amm account pubkey.  This program address has
+    /// authority over the amm's token coin account, token pc account, and pool
+    /// token mint.
+    pub nonce: u64,
+    /// max order count
+    pub order_num: u64,
+    /// within this range, 5 => 5% range
+    pub depth: u64,
+    /// coin decimal
+    pub coin_decimals: u64,
+    /// pc decimal
+    pub pc_decimals: u64,
+    /// amm machine state
+    pub state: u64,
+    /// amm reset_flag
+    pub reset_flag: u64,
+    /// min size 1->0.000001
+    pub min_size: u64,
+    /// vol_max_cut_ratio numerator, sys_decimal_value as denominator
+    pub vol_max_cut_ratio: u64,
+    /// amount wave numerator, sys_decimal_value as denominator
+    pub amount_wave: u64,
+    /// coinLotSize 1 -> 0.000001
+    pub coin_lot_size: u64,
+    /// pcLotSize 1 -> 0.000001
+    pub pc_lot_size: u64,
+    /// min_cur_price: (2 * amm.order_num * amm.pc_lot_size) * max_price_multiplier
+    pub min_price_multiplier: u64,
+    /// max_cur_price: (2 * amm.order_num * amm.pc_lot_size) * max_price_multiplier
+    pub max_price_multiplier: u64,
+    /// system decimal value, used to normalize the value of coin and pc amount
+    pub sys_decimal_value: u64,
+    /// All fee information
+    pub fees: Fees,
+    /// Statistical data
+    pub state_data: StateData,
+    /// Coin vault
+    pub coin_vault: Pubkey,
+    /// Pc vault
+    pub pc_vault: Pubkey,
+    /// Coin vault mint
+    pub coin_vault_mint: Pubkey,
+    /// Pc vault mint
+    pub pc_vault_mint: Pubkey,
+    /// lp mint
+    pub lp_mint: Pubkey,
+    /// open_orders key
+    pub open_orders: Pubkey,
+    /// market key
+    pub market: Pubkey,
+    /// market program key
+    pub market_program: Pubkey,
+    /// target_orders key
+    pub target_orders: Pubkey,
+    /// padding
+    pub padding1: [u64; 8],
+    /// amm owner key
+    pub amm_owner: Pubkey,
+    /// pool lp amount
+    pub lp_amount: u64,
+    /// client order id
+    pub client_order_id: u64,
+    /// padding
+    pub padding2: [u64; 2],
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, BorshDeserialize, BorshSerialize)]
+pub struct Fees {
+    /// numerator of the min_separate
+    pub min_separate_numerator: u64,
+    /// denominator of the min_separate
+    pub min_separate_denominator: u64,
+
+    /// numerator of the fee
+    pub trade_fee_numerator: u64,
+    /// denominator of the fee
+    /// and 'trade_fee_denominator' must be equal to 'min_separate_denominator'
+    pub trade_fee_denominator: u64,
+
+    /// numerator of the pnl
+    pub pnl_numerator: u64,
+    /// denominator of the pnl
+    pub pnl_denominator: u64,
+
+    /// numerator of the swap_fee
+    pub swap_fee_numerator: u64,
+    /// denominator of the swap_fee
+    pub swap_fee_denominator: u64,
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, BorshDeserialize, BorshSerialize)]
+pub struct StateData {
+    /// delay to take pnl coin
+    pub need_take_pnl_coin: u64,
+    /// delay to take pnl pc
+    pub need_take_pnl_pc: u64,
+    /// total pnl pc
+    pub total_pnl_pc: u64,
+    /// total pnl coin
+    pub total_pnl_coin: u64,
+    /// ido pool open time
+    pub pool_open_time: u64,
+    /// padding for future updates
+    pub padding: [u64; 2],
+    /// switch from orderbookonly to init
+    pub orderbook_to_init_time: u64,
+
+    /// swap coin in amount
+    pub swap_coin_in_amount: u128,
+    /// swap pc out amount
+    pub swap_pc_out_amount: u128,
+    /// charge pc as swap fee while swap pc to coin
+    pub swap_acc_pc_fee: u64,
+
+    /// swap pc in amount
+    pub swap_pc_in_amount: u128,
+    /// swap coin out amount
+    pub swap_coin_out_amount: u128,
+    /// charge coin as swap fee while swap coin to pc
+    pub swap_acc_coin_fee: u64,
 }
