@@ -1,5 +1,6 @@
 use crate::arbitrage::types::{Route, TokenInfos};
 use crate::common::debug::print_json_segment;
+use crate::common::utils::make_request;
 use crate::markets::types::{Dex, DexLabel, Market, PoolItem, SimulationRes};
 use crate::markets::utils::toPairString;
 use crate::common::constants::Env;
@@ -14,7 +15,7 @@ use serde_json::Value;
 use reqwest::get;
 use std::io::{BufWriter, Write};
 use futures::StreamExt;
-use log::info;
+use log::{info, error};
 use solana_account_decoder::{UiAccountData, UiAccountEncoding};
 use solana_program::pubkey::Pubkey;
 use solana_sdk::commitment_config::CommitmentConfig;
@@ -120,7 +121,7 @@ pub async fn fetch_data_raydium() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
     } else {
-        info!("Fetch of 'raydium-markets.json' not successful: {}", response.status());
+        error!("Fetch of 'raydium-markets.json' not successful: {}", response.status());
     }
     Ok(())
 }
@@ -163,7 +164,7 @@ pub async fn stream_raydium(account: Pubkey) -> Result<()> {
 
 // Simulate one route 
 // I want to get the data of the market i'm interested in this route
-pub async fn simulate_route_raydium(amount_in: f64, route: Route, market: Market, tokens_infos: HashMap<String, TokenInfos>) -> (String, String) {
+pub async fn simulate_route_raydium(amount_in: f64, route: Route, market: Market, tokens_infos: HashMap<String, TokenInfos>) -> Result<(String, String), Box<dyn std::error::Error>> {
     // println!("account_data: {:?}", &market.account_data.clone().unwrap());
     // println!("market: {:?}", market.clone());
     let raydium_data = AmmInfo::try_from_slice(&market.account_data.unwrap()).unwrap();
@@ -201,19 +202,18 @@ pub async fn simulate_route_raydium(amount_in: f64, route: Route, market: Market
     let req_url = format!("{}raydium_quote?{}", domain, params);
     // println!("req_url: {:?}", req_url);
     //URL like: http://localhost:3000/raydium_quote?poolKeys=58oQChx4yWmvKdwLLZzBi4ChoCc2fqCUWBkwMihLYQo2&amountIn=1000000&currencyIn=So11111111111111111111111111111111111111112&decimalsIn=9&currencyOut=EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v&decimalsOut=6
+    
+    let res = make_request(req_url).await?;
+    let json_value: SimulationRes = res.json().await?;
 
-    let mut res = reqwest::get(req_url).await.expect("Error in request to simulator");
-
-    let json_value = res.json::<SimulationRes>().await;
-    match json_value {
-        Ok(value) => {
-            println!("amountIn: {:?}", value.amountIn);
-            println!("estimatedAmountOut: {:?}", value.estimatedAmountOut);
-            println!("estimatedMinAmountOut: {:?}", value.estimatedMinAmountOut.clone().unwrap());
-            return (value.estimatedAmountOut, value.estimatedMinAmountOut.unwrap());
-        }
-        Err(value) => { (format!("value{:?}", value), format!("value{:?}", value)) }
-    }
+    println!("estimatedAmountIn: {:?}", json_value.amountIn);
+    println!("estimatedAmountOut: {:?}", json_value.estimatedAmountOut);
+    println!("estimatedMinAmountOut: {:?}", json_value.estimatedMinAmountOut.clone().unwrap());
+    
+    Ok((
+        json_value.estimatedAmountOut,
+        json_value.estimatedMinAmountOut.unwrap_or_default(),
+    ))
 
 }
 

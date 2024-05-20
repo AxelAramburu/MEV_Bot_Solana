@@ -3,7 +3,7 @@ use crate::common::constants::Env;
 use crate::common::maths::from_x64_orca_wp;
 use crate::markets::types::{Dex, DexLabel, Market, PoolItem, SimulationRes};
 use crate::markets::utils::{toPairString};
-use crate::common::utils::{from_str, from_Pubkey};
+use crate::common::utils::{from_Pubkey, from_str, make_request};
 use std::collections::HashMap;
 use std::{fs, fs::File};
 use std::io::Write;
@@ -12,7 +12,7 @@ use eth_encode_packed::ethabi::Address;
 use serde::de::IntoDeserializer;
 use serde::{Deserialize, Serialize};
 use reqwest::get;
-use log::info;
+use log::{info, error};
 use solana_account_decoder::{UiAccountData, UiAccountEncoding};
 use solana_client::rpc_client::RpcClient;
 use solana_client::rpc_config::RpcAccountInfoConfig;
@@ -126,7 +126,7 @@ pub async fn fetch_data_orca_whirpools() -> Result<(), Box<dyn std::error::Error
         file.write_all(serde_json::to_string(&json)?.as_bytes())?;
         info!("Data written to 'orca_whirpools-markets.json' successfully.");
     } else {
-        info!("Fetch of 'orca_whirpools-markets.json' not successful: {}", response.status());
+        error!("Fetch of 'orca_whirpools-markets.json' not successful: {}", response.status());
     }
     Ok(())
 }
@@ -158,7 +158,7 @@ pub async fn stream_orca_whirpools(account: Pubkey) -> Result<()> {
 
             }
             Err(e) => {
-                println!("account subscription error: {:?}", e);
+                error!("account subscription error: {:?}", e);
                 break;
             }
         }
@@ -168,7 +168,7 @@ pub async fn stream_orca_whirpools(account: Pubkey) -> Result<()> {
 }
 
 // Simulate one route 
-pub async fn simulate_route_orca_whirpools(amount_in: f64, route: Route, market: Market, tokens_infos: HashMap<String, TokenInfos>) -> (String, String) {
+pub async fn simulate_route_orca_whirpools(amount_in: f64, route: Route, market: Market, tokens_infos: HashMap<String, TokenInfos>) -> Result<(String, String), Box<dyn std::error::Error>> {
     // I want to get the data of the market i'm interested in this route
     let whirpool_data = unpack_from_slice(market.account_data.expect("No account data provided").as_slice()).unwrap();
 
@@ -210,18 +210,40 @@ pub async fn simulate_route_orca_whirpools(amount_in: f64, route: Route, market:
     let req_url = format!("{}orca_quote?{}", domain, params);
     // println!("req_url: {:?}", req_url);
 
-    let mut res = reqwest::get(req_url).await.expect("Error in request to simulator");
+    let res = make_request(req_url).await?;
+    let json_value: SimulationRes = res.json().await?;
 
-    let json_value = res.json::<SimulationRes>().await;
-    match json_value {
-        Ok(value) => {
-            println!("estimatedAmountIn: {:?}", value.amountIn);
-            println!("estimatedAmountOut: {:?}", value.estimatedAmountOut);
-            println!("estimatedMinAmountOut: {:?}", value.estimatedMinAmountOut.clone().unwrap());
-            return (value.estimatedAmountOut, value.estimatedMinAmountOut.unwrap());
-        }
-        Err(value) => { (format!("value{:?}", value), format!("value{:?}", value)) }
-    }
+    println!("estimatedAmountIn: {:?}", json_value.amountIn);
+    println!("estimatedAmountOut: {:?}", json_value.estimatedAmountOut);
+    println!("estimatedMinAmountOut: {:?}", json_value.estimatedMinAmountOut.clone().unwrap());
+
+    Ok((
+        json_value.estimatedAmountOut,
+        json_value.estimatedMinAmountOut.unwrap_or_default(),
+    ))
+
+    // match make_request(req_url).await {
+    //     Ok(res) => {
+    //         // Handle the successful response here
+    //         let json_value = res.json::<SimulationRes>().await;
+
+    //         match json_value {
+    //             Ok(value) => {
+    //                 println!("estimatedAmountIn: {:?}", value.amountIn);
+    //                 println!("estimatedAmountOut: {:?}", value.estimatedAmountOut);
+    //                 println!("estimatedMinAmountOut: {:?}", value.estimatedMinAmountOut.clone().unwrap());
+    //                 return (value.estimatedAmountOut, value.estimatedMinAmountOut.unwrap());
+    //             }
+    //             Err(value) => { 
+    //                 return (format!("value{:?}", value), format!(""));
+    //             }
+    //         }
+    //     }
+    //     Err(value) => { 
+    //        return (format!("value{:?}", value), format!(""));
+    //     }
+    // }
+    // let mut res = reqwest::get(req_url).await.expect("Error in request to simulator");
 
 }
 

@@ -96,10 +96,10 @@ pub fn generate_swap_paths(all_routes: Vec<Route>, tokens: Vec<TokenInArb>) -> V
     // On part du postulat que les pools de même jetons, du même Dex mais avec des fees différents peuvent avoir un prix différent,
     // donc on peut créer des routes 
     let mut all_swap_paths: Vec<SwapPath> = Vec::new();
+    let starting_routes: Vec<&Route> = all_routes.iter().filter(|route| route.tokenIn == tokens[0].address).collect();
 
     //One hop
     // Sol -> token -> Sol
-    let starting_routes: Vec<&Route> = all_routes.iter().filter(|route| route.tokenIn == tokens[0].address).collect();
 
     for route_x in starting_routes.clone() {
         for route_y in all_routes.clone() {
@@ -111,12 +111,11 @@ pub fn generate_swap_paths(all_routes: Vec<Route>, tokens: Vec<TokenInArb>) -> V
         }
     }
 
-    info!("1 Hop swap_paths length: {}", all_swap_paths.len());
-    let swap_paths_1hop = all_swap_paths.len();
+    let swap_paths_1hop_len = all_swap_paths.len();
+    info!("1 Hop swap_paths length: {}", swap_paths_1hop_len);
 
     //Two hops
     // Sol -> token1 -> token2 -> Sol
-
     for route_1 in starting_routes {
         let all_routes_2: Vec<&Route> = all_routes.iter().filter(|route| route.tokenIn == route_1.tokenOut && route_1.pool_address != route.pool_address && route.tokenOut != tokens[0].address).collect();
         for route_2 in all_routes_2 {
@@ -135,11 +134,11 @@ pub fn generate_swap_paths(all_routes: Vec<Route>, tokens: Vec<TokenInArb>) -> V
             }
         }
     }
-    info!("2 Hops swap_path length: {}", all_swap_paths.len() - swap_paths_1hop);
+    info!("2 Hops swap_path length: {}", all_swap_paths.len() - swap_paths_1hop_len);
 
-    for path in all_swap_paths.clone() {
-        println!("Id_Paths: {:?}", path.id_paths);
-    }
+    // for path in all_swap_paths.clone() {
+    //     println!("Id_Paths: {:?}", path.id_paths);
+    // }
 
     //Three hops
     // Sol -> token1 -> token2 -> token3 -> Sol

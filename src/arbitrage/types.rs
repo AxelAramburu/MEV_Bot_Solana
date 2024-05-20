@@ -1,3 +1,4 @@
+use serde::Serialize;
 use solana_sdk::pubkey::Pubkey;
 
 use crate::markets::types::DexLabel;
@@ -31,7 +32,7 @@ pub struct TokenInfos {
     pub decimals: u8,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct SwapRouteSimulation {
     pub id_route: u32,
     pub pool_address: String,
@@ -41,13 +42,21 @@ pub struct SwapRouteSimulation {
     pub estimated_min_amount_out: String,
 
 }
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct SwapPathResult {
-    pub id_route: u32,
-    pub pool_address: String,
-    pub dex_label: DexLabel,
+    pub path_id: u32,
+    pub hops: u8,
+    pub route_simulations: Vec<SwapRouteSimulation>,
+    pub token_in: String,
+    pub token_in_symbol: String,
+    pub token_out: String,
+    pub token_out_symbol: String,
     pub amount_in: f64,
     pub estimated_amount_out: String,
     pub estimated_min_amount_out: String,
-
+    pub result: f64,
+}
+#[derive(Debug, Clone, Serialize)]
+pub struct VecSwapPathResult {
+    pub result: Vec<SwapPathResult>
 }

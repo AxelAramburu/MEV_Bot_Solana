@@ -20,6 +20,7 @@ use MEV_Bot_Solana::arbitrage::types::TokenInArb;
 #[tokio::main]
 async fn main() -> Result<()> {
     dotenv::dotenv().ok();
+    // log4rs::init_file("logging_config.yaml", Default::default()).unwrap();
     setup_logger().unwrap();
 
     info!("Starting MEV_Bot_Solana");
@@ -36,12 +37,21 @@ async fn main() -> Result<()> {
     let dexs = load_all_pools(false).await;
     info!("🏊 {} Dexs are loaded", dexs.len());
     
+    // // The first token is the base token (here SOL)
+    // let tokens_to_arb: Vec<TokenInArb> = vec![
+    //     TokenInArb{address: String::from("So11111111111111111111111111111111111111112"), symbol: String::from("SOL")}, // Base token here
+    //     TokenInArb{address: String::from("25hAyBQfoDhfWx9ay6rarbgvWGwDdNqcHsXS3jQ3mTDJ"), symbol: String::from("MANEKI")},
+    //     TokenInArb{address: String::from("JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN"), symbol: String::from("JUP")},
+    //     TokenInArb{address: String::from("EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm"), symbol: String::from("WIF")},
+    // ];
     // The first token is the base token (here SOL)
     let tokens_to_arb: Vec<TokenInArb> = vec![
-        TokenInArb{address: String::from("So11111111111111111111111111111111111111112"), symbol: String::from("WSOL")}, // Base token here
-        TokenInArb{address: String::from("25hAyBQfoDhfWx9ay6rarbgvWGwDdNqcHsXS3jQ3mTDJ"), symbol: String::from("MANEKI")},
-        TokenInArb{address: String::from("JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN"), symbol: String::from("JUP")},
-        TokenInArb{address: String::from("EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm"), symbol: String::from("WIF")},
+        TokenInArb{address: String::from("So11111111111111111111111111111111111111112"), symbol: String::from("SOL")}, // Base token here
+        TokenInArb{address: String::from("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"), symbol: String::from("USDC")},
+        TokenInArb{address: String::from("HwCi91TGtA5kh2WkvpWNq4KH9GV94QtDB3aCV2khiXaZ"), symbol: String::from("MCAT")},
+        TokenInArb{address: String::from("vsJjNRpRvFJbzfJuqbmKHfuqqNbcXhZKpqZDrz9zxWG"), symbol: String::from("WJD")},
+        TokenInArb{address: String::from("FwBixtdcmxawRFzBNeUmzhQzaFuvv6czs5wCQuLgWWsg"), symbol: String::from("CHEEPEPE")},
+        TokenInArb{address: String::from("ASibGfX717oMTsjkqtJTmt8kwyXXqH3CHW4uHj9b1PUK"), symbol: String::from("1DOL")},
     ];
 
     let tokens_infos = get_tokens_infos(tokens_to_arb.clone()).await;
