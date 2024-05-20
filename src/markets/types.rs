@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use strum::IntoEnumIterator; 
 use strum_macros::EnumIter;
 
-#[derive(Debug, Clone, EnumIter)]
+#[derive(Debug, Clone, EnumIter, Serialize)]
 pub enum DexLabel {
     ORCA,
     ORCA_WHIRLPOOLS,

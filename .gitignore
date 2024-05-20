@@ -1,5 +1,8 @@
 /target
 /cache
 /src/markets/cache/*.json
+/logs
+/results
+/history
 .env
 PseudoCode.md

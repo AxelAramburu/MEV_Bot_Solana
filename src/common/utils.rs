@@ -7,9 +7,7 @@ use solana_sdk::bs58;
 use core::mem;
 use std::collections::HashMap;
 use thiserror::Error;
-// use rand::Rng;
-// use std::str::FromStr;
-// use std::sync::Arc;
+use reqwest::Error;
 
 use crate::{arbitrage::types::{TokenInArb, TokenInfos}, common::constants::{
     Env, PROJECT_NAME
@@ -19,7 +17,7 @@ use solana_client::{
 };
 
 // Function to format our console logs
-pub fn setup_logger() -> Result<()> {
+pub fn setup_logger() -> Result<(), fern::InitError> {
     let colors = ColoredLevelConfig {
         trace: Color::Cyan,
         debug: Color::Magenta,
@@ -29,7 +27,10 @@ pub fn setup_logger() -> Result<()> {
         ..ColoredLevelConfig::new()
     };
 
-    fern::Dispatch::new()
+    let mut base_config = fern::Dispatch::new();
+
+    //Console out
+    let stdout_config = fern::Dispatch::new()
         .format(move |out, message, record| {
             out.finish(format_args!(
                 "{}[{}] {}",
@@ -40,9 +41,43 @@ pub fn setup_logger() -> Result<()> {
         })
         .chain(std::io::stdout())
         .level(log::LevelFilter::Error)
-        .level_for(PROJECT_NAME, LevelFilter::Info)
-        .apply()?;
+        .level_for(PROJECT_NAME, LevelFilter::Info);
+    
+    //File logs
+    let file_config = fern::Dispatch::new()
+        .format(move |out, message, record| {
+            out.finish(format_args!(
+                "{}{} [{}][{}] {}",
+                chrono::Local::now().format("[%H:%M:%S]"),
+                chrono::Local::now().format("[%d/%m/%Y]"),
+                record.level(),
+                record.target(),
+                message
+            ))
+        })
+        .chain(fern::log_file("logs\\program.log")?)
+        .level(log::LevelFilter::Error)
+        .level_for(PROJECT_NAME, LevelFilter::Info);
+    //Errors logs
+    let errors_config = fern::Dispatch::new()
+        .format(move |out, message, record| {
+            out.finish(format_args!(
+                "{}{} [{}][{}] {}",
+                chrono::Local::now().format("[%H:%M:%S]"),
+                chrono::Local::now().format("[%d/%m/%Y]"),
+                record.level(),
+                record.target(),
+                message
+            ))
+        })
+        .chain(fern::log_file("logs\\errors.log")?)
+        .level(log::LevelFilter::Error);
 
+    base_config
+        .chain(file_config)
+        .chain(errors_config)
+        .chain(stdout_config)
+        .apply()?;
     Ok(())
 }
 
@@ -100,6 +135,10 @@ pub async fn get_tokens_infos(tokens: Vec<TokenInArb>) -> HashMap<String, TokenI
     }
     return tokens_infos;
 
+}
+
+pub async fn make_request(req_url: String) -> Result<reqwest::Response, Error> {
+    reqwest::get(req_url).await
 }
 
 #[derive(BorshDeserialize, Debug)]

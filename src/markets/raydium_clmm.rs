@@ -7,7 +7,7 @@ use std::io;
 use std::io::Write;
 use serde::{Deserialize, Serialize};
 use reqwest::get;
-use log::info;
+use log::{info, error};
 use solana_account_decoder::{UiAccountData, UiAccountEncoding};
 use solana_program::pubkey::Pubkey;
 use solana_sdk::commitment_config::CommitmentConfig;
@@ -81,7 +81,7 @@ pub async fn fetch_data_raydium_clmm() -> Result<(), Box<dyn std::error::Error>>
         file.write_all(serde_json::to_string(&json)?.as_bytes())?;
         info!("Data written to 'raydiumclmm-markets.json' successfully.");
     } else {
-        info!("Fetch of 'raydiumclmm-markets.json'  not successful: {}", response.status());
+        error!("Fetch of 'raydiumclmm-markets.json' not successful: {}", response.status());
     }
     Ok(())
 }
@@ -113,7 +113,7 @@ pub async fn stream_raydium_clmm(account: Pubkey) -> Result<()> {
 
             }
             Err(e) => {
-                println!("account subscription error: {:?}", e);
+                error!("account subscription error: {:?}", e);
                 break;
             }
         }
