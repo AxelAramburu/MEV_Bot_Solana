@@ -2,11 +2,12 @@ use std::collections::HashMap;
 
 use log::info;
 use log::error;
+use rust_socketio::asynchronous::{Client, ClientBuilder};
 
 use crate::markets::{orca_whirpools::simulate_route_orca_whirpools, raydium::simulate_route_raydium, types::{DexLabel, Market}};
 use super::types::{SwapPath, SwapPathResult, SwapRouteSimulation, TokenInfos};
 
-pub async fn simulate_path(path: SwapPath, markets: Vec<Market>, tokens_infos: HashMap<String, TokenInfos>, mut route_simulation: HashMap<Vec<u32>, Vec<SwapRouteSimulation>>) -> (HashMap<Vec<u32>, Vec<SwapRouteSimulation>>, Vec<SwapRouteSimulation>) {
+pub async fn simulate_path(socket: Client, path: SwapPath, markets: Vec<Market>, tokens_infos: HashMap<String, TokenInfos>, mut route_simulation: HashMap<Vec<u32>, Vec<SwapRouteSimulation>>) -> (HashMap<Vec<u32>, Vec<SwapRouteSimulation>>, Vec<SwapRouteSimulation>) {
     println!("🚕🚕🚕🚕     NEW PATH    🚕🚕🚕🚕");
     println!("Nb. Hops : {}", path.hops);
     // let AMT = 1000000000; // 1 SOL in lamport
@@ -67,6 +68,8 @@ pub async fn simulate_path(path: SwapPath, markets: Vec<Market>, tokens_infos: H
                             id_route: route.id.clone(),
                             pool_address: route.pool_address.clone(),
                             dex_label: DexLabel::ORCA_WHIRLPOOLS,
+                            token_in: route.tokenIn.clone(),
+                            token_out: route.tokenOut.clone(),
                             amount_in: amount_in,
                             estimated_amount_out: amount_out.clone(),
                             estimated_min_amount_out: min_amount_out.clone(),
@@ -109,6 +112,8 @@ pub async fn simulate_path(path: SwapPath, markets: Vec<Market>, tokens_infos: H
                             id_route: route.id.clone(),
                             pool_address: route.pool_address.clone(),
                             dex_label: DexLabel::RAYDIUM,
+                            token_in: route.tokenIn.clone(),
+                            token_out: route.tokenOut.clone(),
                             amount_in: amount_in,
                             estimated_amount_out: amount_out.clone(),
                             estimated_min_amount_out: min_amount_out.clone(),
