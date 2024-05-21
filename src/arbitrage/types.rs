@@ -37,6 +37,8 @@ pub struct SwapRouteSimulation {
     pub id_route: u32,
     pub pool_address: String,
     pub dex_label: DexLabel,
+    pub token_in: String,
+    pub token_out: String,
     pub amount_in: f64,
     pub estimated_amount_out: String,
     pub estimated_min_amount_out: String,

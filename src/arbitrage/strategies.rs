@@ -1,19 +1,17 @@
-use std::{collections::HashMap, fs::File};
-
-use serde_json::{Result, Value};
-
+use std::{collections::HashMap, fs::File, time::Duration};
+use futures::FutureExt;
+use serde_json::{json, Result, Value};
 use solana_sdk::pubkey::Pubkey;
+use rust_socketio::{Payload, RawClient, asynchronous::{Client, ClientBuilder},};
 
 use crate::{arbitrage::{
     calc_arb::{calculate_arb, get_markets_arb}, simulate::simulate_path, streams::get_fresh_accounts_states, types::{SwapPath, SwapPathResult, SwapRouteSimulation, VecSwapPathResult}
-}, common::utils::from_Pubkey};
-use crate::markets::types::{Dex, DexLabel, Market, PoolItem};
-use crate::common::utils::from_str;
-
+}, common::{constants::Env, utils::from_Pubkey}};
+use crate::markets::types::{Dex,Market};
 use super::types::{TokenInArb, TokenInfos};
 use log::{info, error};
 
-pub async fn run_arbitrage_strategy(dexs: Vec<Dex>, tokens: Vec<TokenInArb>, tokens_infos: HashMap<String, TokenInfos>) {
+pub async fn run_arbitrage_strategy(socket: Client, dexs: Vec<Dex>, tokens: Vec<TokenInArb>, tokens_infos: HashMap<String, TokenInfos>) {
     info!("👀 Run Arbitrage Strategies...");
     let markets_arb = get_markets_arb(dexs, tokens.clone()).await;
     let fresh_markets_arb = get_fresh_accounts_states(markets_arb.clone()).await;
@@ -23,6 +21,7 @@ pub async fn run_arbitrage_strategy(dexs: Vec<Dex>, tokens: Vec<TokenInArb>, tok
     let mut route_simulation: HashMap<Vec<u32>, Vec<SwapRouteSimulation>> = HashMap::new();
 
     let mut swap_paths_results: VecSwapPathResult = VecSwapPathResult{result: Vec::new()};
+
     for (i, path) in all_paths.iter().enumerate() {     //Add this to limit iterations: .take(100)
         // println!("👀 Swap paths: {:?}", path);
         // Get Pubkeys of the concerned markets
@@ -33,7 +32,7 @@ pub async fn run_arbitrage_strategy(dexs: Vec<Dex>, tokens: Vec<TokenInArb>, tok
         let markets: Vec<Market> = pubkeys.iter().filter_map(|key| sorted_markets_arb.get(key)).cloned().collect();
         // println!("route_simulation: {:?}", route_simulation);
 
-        let (new_route_simulation, swap_simulation_result) = simulate_path(path.clone(), markets, tokens_infos.clone(), route_simulation.clone()).await;
+        let (new_route_simulation, swap_simulation_result) = simulate_path(socket.clone(), path.clone(), markets, tokens_infos.clone(), route_simulation.clone()).await;
 
         if swap_simulation_result.len() >= path.hops as usize {
             let sp_result: SwapPathResult = SwapPathResult{ 
