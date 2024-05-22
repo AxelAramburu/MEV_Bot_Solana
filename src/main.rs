@@ -4,6 +4,9 @@ use log::info;
 use serde_json::json;
 use MEV_Bot_Solana::arbitrage::strategies::run_arbitrage_strategy;
 use MEV_Bot_Solana::arbitrage::streams::stream_accounts_change;
+use MEV_Bot_Solana::markets::raydium::fetch_new_raydium_pools;
+use MEV_Bot_Solana::strategies::pools::get_fresh_pools;
+use std::collections::HashMap;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
@@ -16,7 +19,7 @@ use MEV_Bot_Solana::common::constants::Env;
 use MEV_Bot_Solana::markets::pools::load_all_pools;
 use MEV_Bot_Solana::common::utils::{from_str, get_tokens_infos, setup_logger};
 use MEV_Bot_Solana::arbitrage::calc_arb::calculate_arb;
-use MEV_Bot_Solana::arbitrage::types::TokenInArb;
+use MEV_Bot_Solana::arbitrage::types::{TokenInArb, TokenInfos};
 
 use rust_socketio::{Payload, RawClient, asynchronous::{Client, ClientBuilder},};
 
@@ -37,10 +40,10 @@ async fn main() -> Result<()> {
     let rpc_client: RpcClient = RpcClient::new(env.rpc_url);
 
     let mut set: JoinSet<()> = JoinSet::new();
-
+    
     info!("🏊 Launch pools fetching infos...");
     //Params is for re-fetching pools on API or not
-    let dexs = load_all_pools(true).await;
+    let dexs = load_all_pools(false).await;
     info!("🏊 {} Dexs are loaded", dexs.len());
     
     // // The first token is the base token (here SOL)
@@ -59,13 +62,14 @@ async fn main() -> Result<()> {
     // ];
     let tokens_to_arb: Vec<TokenInArb> = vec![
         TokenInArb{address: String::from("So11111111111111111111111111111111111111112"), symbol: String::from("SOL")}, // Base token here
-        TokenInArb{address: String::from("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"), symbol: String::from("USDC")},
-        TokenInArb{address: String::from("DF5yCVTfhVwvS1VRfHETNzEeh1n6DjAqEBs3kj9frdAr"), symbol: String::from("APE")},
-        TokenInArb{address: String::from("G9My3hXV9CYcHGsfSRTEJcfSPgra5BvzRsFJxVzhv6x9"), symbol: String::from("KOOT")},
+        // TokenInArb{address: String::from("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"), symbol: String::from("USDC")},
+        TokenInArb{address: String::from("8wXtPeU6557ETkp9WHFY1n1EcU6NxDvbAggHGsMYiHsB"), symbol: String::from("GME")},
+        TokenInArb{address: String::from("EWyRf1MicRshh5fTAeLddbCm24L5YBHCcq49T1uKoE2Q"), symbol: String::from("PIZZAWIF")},
     ];
 
-    let tokens_infos = get_tokens_infos(tokens_to_arb.clone()).await;
-    println!("Token Infos: {:?}", tokens_infos);
+    let tokens_infos: HashMap<String, TokenInfos> = get_tokens_infos(tokens_to_arb.clone()).await;
+
+    info!("🪙🪙 Tokens Infos: {:?}", tokens_to_arb);
     info!("📈 Launch arbitrage process...");
     // let (markets_arb, all_paths) = calculate_arb(dexs, tokens_to_arb).await;
     

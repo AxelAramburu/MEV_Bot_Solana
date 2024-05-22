@@ -7,6 +7,7 @@ use crate::markets::orca_whirpools::WhirlpoolAccount;
 use crate::markets::raydium::{MarketStateLayoutV3, RaydiumPool};
 use crate::markets::types::{Dex, DexLabel, Market};
 use crate::arbitrage::types::{TokenInArb, Route, SwapPath};
+use crate::strategies::pools::get_fresh_pools;
 
 pub async fn get_markets_arb(dexs: Vec<Dex>, tokens: Vec<TokenInArb>) -> HashMap<String, Market> {
 
@@ -26,6 +27,15 @@ pub async fn get_markets_arb(dexs: Vec<Dex>, tokens: Vec<TokenInArb>) -> HashMap
                     markets_arb.insert(key, market_iter);
                 }
             }
+        }
+    }
+
+    let new_markets_arb = get_fresh_pools(tokens).await;
+
+    for (key, market) in new_markets_arb {
+        if token_addresses.contains(&market.tokenMintA) && token_addresses.contains(&market.tokenMintB) && !markets_arb.contains_key(&key) {
+            // key is the address of the pool
+            markets_arb.insert(key, market);
         }
     }
 

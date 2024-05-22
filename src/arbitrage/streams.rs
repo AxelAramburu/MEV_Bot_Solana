@@ -60,12 +60,14 @@ pub async fn get_fresh_accounts_states(mut accounts: HashMap<String, Market>) ->
         let batch = &pubkeys_vec[(i..maxLength)];
         
         let batch_results = rpc_client.get_multiple_accounts(&batch).unwrap();
+        // println!("BatchResult {:?}", batch_results);
         for (j, account) in batch_results.iter().enumerate() {
             let account = account.clone().unwrap();
             // println!("WhirpoolAccount: {:?}", data);
             let account_data = account.data;
 
             markets_vec[j].account_data = Some(account_data);
+            markets_vec[j].id = key_vec[j].clone();
             accounts.insert(key_vec[j].clone(), markets_vec[j].clone());
         }
     }
