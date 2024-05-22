@@ -15,7 +15,8 @@ use reqwest::get;
 use log::{info, error};
 use solana_account_decoder::{UiAccountData, UiAccountEncoding};
 use solana_client::rpc_client::RpcClient;
-use solana_client::rpc_config::RpcAccountInfoConfig;
+use solana_client::rpc_config::{RpcAccountInfoConfig, RpcProgramAccountsConfig};
+use solana_client::rpc_filter::{Memcmp, MemcmpEncodedBytes, RpcFilterType};
 use solana_program::pubkey::Pubkey;
 use solana_sdk::commitment_config::CommitmentConfig;
 use solana_sdk::program_error::ProgramError;
@@ -23,6 +24,7 @@ use solana_pubsub_client::pubsub_client::PubsubClient;
 use anyhow::Result;
 use solana_sdk::signer::keypair::Keypair;
 use hex::encode;
+use solana_sdk::account::Account;
 
 #[derive(Debug)]
 pub struct OrcaDexWhirpools {
@@ -60,8 +62,10 @@ impl OrcaDexWhirpools {
                 let account = account.clone().unwrap();
                 // let gov = solana_sdk::pubkey::Pubkey::try_from("2LecshUwdy9xi7meFgHtFJQNSKk4KdTrcpvaB56dP2NQ").unwrap();
                 // println!("Gov bytes: {:?}", gov.to_bytes());
-                // println!("Account {:?}", &account.data);
+                // println!("Account {:?}", &account);
                 let mut data = unpack_from_slice(&account.data).unwrap();
+                // println!("Data {:?}", &data);
+
                 data.address = batch[j];
                 // println!("WhirpoolAccount: {:?}", data);
                 results_pools.push(data);
@@ -113,6 +117,55 @@ impl OrcaDexWhirpools {
             pools: pools_vec,
         }
     }
+}
+
+pub async fn fetch_new_orca_whirpools(rpc_client: &RpcClient, token: String, on_tokena: bool) -> Vec<(Pubkey, Market)> {
+    let orca_program = "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc".to_string();
+    
+    let mut new_markets: Vec<(Pubkey, Market)> = Vec::new(); 
+    let filters = Some(vec![
+        RpcFilterType::Memcmp(Memcmp::new(
+            // 101 for token_mint_a && 181 for token_mint_b
+            if on_tokena == true {
+                101
+            } else {
+                181
+            }, 
+          MemcmpEncodedBytes::Base58(token.clone()),
+        )),
+        RpcFilterType::DataSize(653),  //data.len == 653 for Whirpool account
+    ]);
+    
+    let accounts = rpc_client.get_program_accounts_with_config(
+        &from_str(&orca_program).unwrap(),
+        RpcProgramAccountsConfig {
+            filters,
+            account_config: RpcAccountInfoConfig {
+                encoding: Some(UiAccountEncoding::Base64),
+                commitment: Some(rpc_client.commitment()),
+                ..RpcAccountInfoConfig::default()
+            },
+            ..RpcProgramAccountsConfig::default()
+        },
+    ).unwrap();
+
+    for account in accounts {
+        let whirpool_account = unpack_from_slice(account.1.data.as_slice()).unwrap();
+        let market: Market = Market {
+            tokenMintA: from_Pubkey(whirpool_account.token_mint_a.clone()),
+            tokenVaultA: from_Pubkey(whirpool_account.token_vault_a.clone()),
+            tokenMintB: from_Pubkey(whirpool_account.token_mint_b.clone()),
+            tokenVaultB: from_Pubkey(whirpool_account.token_vault_b.clone()),
+            fee: whirpool_account.fee_rate.clone() as u128,
+            dexLabel: DexLabel::ORCA_WHIRLPOOLS,
+            id: from_Pubkey(account.0.clone()),
+            account_data: Some(account.1.data),
+            liquidity: Some(whirpool_account.liquidity),
+        };
+        new_markets.push((account.0, market));
+    }
+    // println!("Accounts: {:?}", accounts);
+    return new_markets;
 }
 
 pub async fn fetch_data_orca_whirpools() -> Result<(), Box<dyn std::error::Error>> {

@@ -1,11 +1,13 @@
 use crate::arbitrage::types::{Route, TokenInfos};
-use crate::common::debug::print_json_segment;
-use crate::common::utils::make_request;
 use crate::markets::types::{Dex, DexLabel, Market, PoolItem, SimulationRes};
 use crate::markets::utils::toPairString;
+use crate::common::debug::print_json_segment;
+use crate::common::utils::{from_Pubkey, from_str, make_request};
 use crate::common::constants::Env;
 
 use borsh::{BorshDeserialize, BorshSerialize};
+use eth_encode_packed::ethabi::token;
+use solana_client::rpc_filter::{Memcmp, MemcmpEncodedBytes, RpcFilterType};
 use tokio::net::TcpStream;
 use std::collections::HashMap;
 use std::{fs::File, io::Read};
@@ -22,7 +24,7 @@ use solana_sdk::commitment_config::CommitmentConfig;
 use solana_pubsub_client::pubsub_client::PubsubClient;
 use anyhow::Result;
 use solana_client::rpc_client::RpcClient;
-use solana_client::rpc_config::RpcAccountInfoConfig;
+use solana_client::rpc_config::{RpcAccountInfoConfig, RpcProgramAccountsConfig};
 
 #[derive(Debug)]
 pub struct RaydiumDEX {
@@ -124,6 +126,58 @@ pub async fn fetch_data_raydium() -> Result<(), Box<dyn std::error::Error>> {
         error!("Fetch of 'raydium-markets.json' not successful: {}", response.status());
     }
     Ok(())
+}
+
+// pub async fn fetch_new_raydium_pools(rpc_client: &RpcClient, token: String, on_tokena: bool ) -> Vec<(Pubkey, Market)> {
+pub async fn fetch_new_raydium_pools(rpc_client: &RpcClient, token: String, on_tokena: bool) -> Vec<(Pubkey, Market)> {
+
+    let raydium_program = "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8".to_string();
+    
+    let mut new_markets: Vec<(Pubkey, Market)> = Vec::new(); 
+    let filters = Some(vec![
+        RpcFilterType::Memcmp(Memcmp::new(
+            if on_tokena == true {
+                400
+            } else {
+                432
+            },
+          MemcmpEncodedBytes::Base58(token.clone()),
+        )),
+        RpcFilterType::DataSize(752), 
+    ]);
+    
+    let accounts = rpc_client.get_program_accounts_with_config(
+        &from_str(&raydium_program).unwrap(),
+        RpcProgramAccountsConfig {
+            filters,
+            account_config: RpcAccountInfoConfig {
+                encoding: Some(UiAccountEncoding::Base64),
+                commitment: Some(rpc_client.commitment()),
+                ..RpcAccountInfoConfig::default()
+            },
+            ..RpcProgramAccountsConfig::default()
+        },
+    ).unwrap();
+
+    for account in accounts.clone() {
+        let raydium_account = AmmInfo::try_from_slice(&account.1.data).unwrap();
+        let fees: u128 = (raydium_account.fees.trade_fee_numerator / raydium_account.fees.trade_fee_denominator) as u128;
+        let market: Market = Market {
+            tokenMintA: from_Pubkey(raydium_account.coin_vault_mint.clone()),
+            tokenVaultA: from_Pubkey(raydium_account.coin_vault.clone()),
+            tokenMintB: from_Pubkey(raydium_account.pc_vault_mint.clone()),
+            tokenVaultB: from_Pubkey(raydium_account.pc_vault.clone()),
+            fee: fees,
+            dexLabel: DexLabel::RAYDIUM,
+            id: from_Pubkey(account.0.clone()),
+            account_data: Some(account.1.data),
+            liquidity: Some(1111111111111111111 as u128),
+        };
+        new_markets.push((account.0, market));
+    }
+    println!("Accounts: {:?}", accounts);
+    // println!("new_markets: {:?}", new_markets);
+    return new_markets;
 }
 
 pub async fn stream_raydium(account: Pubkey) -> Result<()> {

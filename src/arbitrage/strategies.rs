@@ -6,15 +6,20 @@ use rust_socketio::{Payload, RawClient, asynchronous::{Client, ClientBuilder},};
 
 use crate::{arbitrage::{
     calc_arb::{calculate_arb, get_markets_arb}, simulate::simulate_path, streams::get_fresh_accounts_states, types::{SwapPath, SwapPathResult, SwapRouteSimulation, VecSwapPathResult}
-}, common::{constants::Env, utils::from_Pubkey}};
+}, common::{constants::Env, utils::from_Pubkey}, strategies::pools::get_fresh_pools};
 use crate::markets::types::{Dex,Market};
 use super::types::{TokenInArb, TokenInfos};
-use log::{info, error};
+use log::{debug, error, info};
 
 pub async fn run_arbitrage_strategy(socket: Client, dexs: Vec<Dex>, tokens: Vec<TokenInArb>, tokens_infos: HashMap<String, TokenInfos>) {
     info!("👀 Run Arbitrage Strategies...");
     let markets_arb = get_markets_arb(dexs, tokens.clone()).await;
     let fresh_markets_arb = get_fresh_accounts_states(markets_arb.clone()).await;
+    // println!("DEBUG {:?}", fresh_markets_arb);
+    // debug!("DEBUG {:?}", markets_arb.get(&"65shmpuYmxx5p7ggNCZbyrGLCXVqbBR1ZD5aAocRBUNG".to_string()));
+    // debug!("DEBUG {:?}", fresh_markets_arb.get(&"65shmpuYmxx5p7ggNCZbyrGLCXVqbBR1ZD5aAocRBUNG".to_string()));
+
+    // Sort markets with low liquidity
     let (sorted_markets_arb, all_paths) = calculate_arb(fresh_markets_arb.clone(), tokens.clone());
 
     // We keep route simulation result for RPC optimization
