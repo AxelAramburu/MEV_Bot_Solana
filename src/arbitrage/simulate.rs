@@ -147,6 +147,9 @@ pub async fn simulate_path(socket: Client, path: SwapPath, markets: Vec<Market>,
             DexLabel::RAYDIUM_CLMM => {
                 println!(" ⚠️⚠️ ONE RAYDIUM_CLMM POOL ");
             },
+            DexLabel::METEORA => {
+                println!(" ⚠️⚠️ ONE METEORA POOL ");
+            },
         }
     }
     

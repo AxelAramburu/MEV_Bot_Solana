@@ -4,12 +4,13 @@ use serde::{Deserialize, Serialize};
 use strum::IntoEnumIterator; 
 use strum_macros::EnumIter;
 
-#[derive(Debug, Clone, EnumIter, Serialize)]
+#[derive(Debug, Clone, EnumIter, Serialize, Eq, PartialEq, Hash)]
 pub enum DexLabel {
     ORCA,
     ORCA_WHIRLPOOLS,
     RAYDIUM,
     RAYDIUM_CLMM,
+    METEORA,
 }
 
 impl DexLabel {
@@ -19,6 +20,7 @@ impl DexLabel {
             DexLabel::ORCA_WHIRLPOOLS => String::from("Orca (Whirlpools)"),
             DexLabel::RAYDIUM => String::from("Raydium"),
             DexLabel::RAYDIUM_CLMM => String::from("Raydium CLMM"),
+            DexLabel::METEORA => String::from("Meteora"),
         }
     }
     pub fn api_url(&self) -> String {
@@ -27,6 +29,7 @@ impl DexLabel {
             DexLabel::ORCA_WHIRLPOOLS => String::from("https://api.mainnet.orca.so/v1/whirlpool/list"),
             DexLabel::RAYDIUM => String::from("https://api.raydium.io/v2/main/pairs"),
             DexLabel::RAYDIUM_CLMM => String::from("https://api.raydium.io/v2/ammV3/ammPools"),
+            DexLabel::METEORA => String::from("https://dlmm-api.meteora.ag/pair/all"),
         }
     }
 }

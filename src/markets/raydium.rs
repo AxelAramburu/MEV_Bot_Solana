@@ -175,7 +175,7 @@ pub async fn fetch_new_raydium_pools(rpc_client: &RpcClient, token: String, on_t
         };
         new_markets.push((account.0, market));
     }
-    println!("Accounts: {:?}", accounts);
+    // println!("Accounts: {:?}", accounts);
     // println!("new_markets: {:?}", new_markets);
     return new_markets;
 }

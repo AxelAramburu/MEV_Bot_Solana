@@ -11,7 +11,7 @@ use crate::{
     arbitrage::types::TokenInArb, common::{
         constants::Env,
         utils::from_str,
-    }, markets::{orca_whirpools::{fetch_new_orca_whirpools, unpack_from_slice, WhirlpoolAccount}, raydium::fetch_new_raydium_pools, types::{DexLabel, Market}} 
+    }, markets::{meteora::fetch_new_meteora_pools, orca_whirpools::{fetch_new_orca_whirpools, unpack_from_slice, WhirlpoolAccount}, raydium::fetch_new_raydium_pools, types::{DexLabel, Market}} 
 };
 
 pub async fn get_fresh_pools(tokens: Vec<TokenInArb>) -> HashMap<String, Market> {
@@ -37,17 +37,30 @@ pub async fn get_fresh_pools(tokens: Vec<TokenInArb>) -> HashMap<String, Market>
             count_new_pools += 1;
         }
         //Raydium Markets 
-        let orca_res_tokena = fetch_new_raydium_pools(&rpc_client, token.address.clone(), false).await;
-        for orca_pool in orca_res_tokena {
-            new_markets.insert(orca_pool.0.to_string(), orca_pool.1);
+        let raydium_res_tokena = fetch_new_raydium_pools(&rpc_client, token.address.clone(), false).await;
+        for raydium_pool in raydium_res_tokena {
+            new_markets.insert(raydium_pool.0.to_string(), raydium_pool.1);
             count_new_pools += 1;
         }
-        let orca_res_tokenb = fetch_new_raydium_pools(&rpc_client, token.address.clone(), true).await;
-        for orca_pool in orca_res_tokenb {
-            new_markets.insert(orca_pool.0.to_string(), orca_pool.1);
+        let raydium_res_tokenb = fetch_new_raydium_pools(&rpc_client, token.address.clone(), true).await;
+        for raydium_pool in raydium_res_tokenb {
+            new_markets.insert(raydium_pool.0.to_string(), raydium_pool.1);
+            count_new_pools += 1;
+        }
+        //Meteora Markets 
+        let meteora_res_tokena = fetch_new_meteora_pools(&rpc_client, token.address.clone(), false).await;
+        for meteora_pool in meteora_res_tokena {
+            new_markets.insert(meteora_pool.0.to_string(), meteora_pool.1);
+            count_new_pools += 1;
+        }
+        let meteora_res_tokenb = fetch_new_meteora_pools(&rpc_client, token.address.clone(), true).await;
+        for meteora_pool in meteora_res_tokenb {
+            new_markets.insert(meteora_pool.0.to_string(), meteora_pool.1);
             count_new_pools += 1;
         }
     }
+    info!("⚠️⚠️ NO RAYDIUM_CLMM fresh pools !");
+    info!("⚠️⚠️ NO ORCA fresh pools !");
     info!("👀 {} new markets founded !", count_new_pools);
     return new_markets;
 }
