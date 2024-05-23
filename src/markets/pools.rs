@@ -1,4 +1,5 @@
 use crate::common::constants::Env;
+use super::meteora::{fetch_data_meteora, MeteoraDEX};
 use super::types::{Dex, DexLabel};
 use super::raydium_clmm::{RaydiumClmmDEX, fetch_data_raydium_clmm};
 use super::orca::{OrcaDex, fetch_data_orca};
@@ -21,6 +22,7 @@ pub async fn load_all_pools(refecth_api: bool) -> Vec<Dex> {
         fetch_data_orca().await;
         fetch_data_orca_whirpools().await;
         fetch_data_raydium().await;
+        fetch_data_meteora().await;
     }
 
     let mut dex1 = Dex::new(DexLabel::RAYDIUM_CLMM);
@@ -31,6 +33,8 @@ pub async fn load_all_pools(refecth_api: bool) -> Vec<Dex> {
     let dex_orca_whirpools = OrcaDexWhirpools::new(dex3);
     let mut dex4 = Dex::new(DexLabel::RAYDIUM);
     let dex_raydium = RaydiumDEX::new(dex4);
+    let mut dex5 = Dex::new(DexLabel::METEORA);
+    let dex_meteora = MeteoraDEX::new(dex5);
     
     // println!("random_pair {:?}", dex_raydium.dex.pairToMarkets.get("So11111111111111111111111111111111111111112/mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So"));
     
@@ -39,6 +43,7 @@ pub async fn load_all_pools(refecth_api: bool) -> Vec<Dex> {
     results.push(dex_orca.dex);
     results.push(dex_orca_whirpools.dex);
     results.push(dex_raydium.dex);
+    results.push(dex_meteora.dex);
     return results
 
 }

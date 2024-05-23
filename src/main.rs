@@ -62,9 +62,9 @@ async fn main() -> Result<()> {
     // ];
     let tokens_to_arb: Vec<TokenInArb> = vec![
         TokenInArb{address: String::from("So11111111111111111111111111111111111111112"), symbol: String::from("SOL")}, // Base token here
-        // TokenInArb{address: String::from("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"), symbol: String::from("USDC")},
+        TokenInArb{address: String::from("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"), symbol: String::from("USDC")},
         TokenInArb{address: String::from("8wXtPeU6557ETkp9WHFY1n1EcU6NxDvbAggHGsMYiHsB"), symbol: String::from("GME")},
-        TokenInArb{address: String::from("EWyRf1MicRshh5fTAeLddbCm24L5YBHCcq49T1uKoE2Q"), symbol: String::from("PIZZAWIF")},
+        TokenInArb{address: String::from("FwBixtdcmxawRFzBNeUmzhQzaFuvv6czs5wCQuLgWWsg"), symbol: String::from("CHEEPEPE")},
     ];
 
     let tokens_infos: HashMap<String, TokenInfos> = get_tokens_infos(tokens_to_arb.clone()).await;

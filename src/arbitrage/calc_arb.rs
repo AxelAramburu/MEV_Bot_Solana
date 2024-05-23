@@ -47,7 +47,7 @@ pub fn calculate_arb(markets_arb: HashMap<String, Market>, tokens: Vec<TokenInAr
     //Sort valuables markets: ex: Remove low liquidity markets
     let mut sorted_markets_arb: HashMap<String, Market> = HashMap::new();
     let mut excluded_markets_arb: Vec<String> = Vec::new();
-
+    
     println!("⚠️⚠️ ORCA Pool not sorted");
     println!("⚠️⚠️ RAYDIUM_CLMM Pool not sorted");
 
@@ -73,9 +73,36 @@ pub fn calculate_arb(markets_arb: HashMap<String, Market>, tokens: Vec<TokenInAr
                     excluded_markets_arb.push(key);
                 }
             },
+            DexLabel::METEORA => {
+                if market.liquidity.unwrap() >= 2000 { //If liquidity more than 2000$
+                    sorted_markets_arb.insert(key, market);
+                } else {
+                    excluded_markets_arb.push(key);
+                }
+            },
         }
     }
     info!("👌 Included Markets: {}", sorted_markets_arb.len());
+    
+    let mut counts: HashMap<DexLabel, i32> = HashMap::new();
+    counts.insert(DexLabel::ORCA, 0);
+    counts.insert(DexLabel::ORCA_WHIRLPOOLS, 0);
+    counts.insert(DexLabel::RAYDIUM, 0);
+    counts.insert(DexLabel::RAYDIUM_CLMM, 0);
+    counts.insert(DexLabel::METEORA, 0);
+    
+    for (key, market) in sorted_markets_arb.clone() {
+        if let Some(count) = counts.get_mut(&market.dexLabel) {
+            *count += 1;
+        }
+    }
+    
+    info!("Numbers of ORCA markets: {}", counts[&DexLabel::ORCA]);
+    info!("Numbers of ORCA_WHIRLPOOLS markets: {}", counts[&DexLabel::ORCA_WHIRLPOOLS]);
+    info!("Numbers of RAYDIUM markets: {}", counts[&DexLabel::RAYDIUM]);
+    info!("Numbers of RAYDIUM_CLMM markets: {}", counts[&DexLabel::RAYDIUM_CLMM]);
+    info!("Numbers of METEORA markets: {}", counts[&DexLabel::METEORA]);
+
     info!("🗑️  Excluded Markets: {}", excluded_markets_arb.len());
     let all_routes: Vec<Route> = compute_routes(sorted_markets_arb.clone());
 
