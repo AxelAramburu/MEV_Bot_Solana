@@ -178,7 +178,7 @@ pub async fn fetch_new_meteora_pools(rpc_client: &RpcClient, token: String, on_t
 pub async fn simulate_route_meteora(amount_in: f64, route: Route, market: Market, tokens_infos: HashMap<String, TokenInfos>) -> Result<(String, String), Box<dyn std::error::Error>> {
     // println!("account_data: {:?}", &market.account_data.clone().unwrap());
     // println!("market: {:?}", market.clone());
-    let raydium_data = AccountData::try_from_slice(&market.account_data.expect("No data on option // METEORA")).expect("Account data not fit bytes length");
+    let raydium_data = AccountData::try_from_slice(&market.account_data.expect("Account data problem // METEORA")).expect("Account data not fit bytes length");
     // println!("raydium_data: {:?}", raydium_data);
     let decimals_0 = tokens_infos.get(&market.tokenMintA).unwrap().decimals;
     let decimals_1 = tokens_infos.get(&market.tokenMintB).unwrap().decimals;
