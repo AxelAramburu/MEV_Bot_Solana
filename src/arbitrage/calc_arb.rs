@@ -32,12 +32,16 @@ pub async fn get_markets_arb(dexs: Vec<Dex>, tokens: Vec<TokenInArb>) -> HashMap
 
     let new_markets_arb = get_fresh_pools(tokens).await;
 
+    let mut count_new_pools = 0;
+
     for (key, market) in new_markets_arb {
         if token_addresses.contains(&market.tokenMintA) && token_addresses.contains(&market.tokenMintB) && !markets_arb.contains_key(&key) {
             // key is the address of the pool
             markets_arb.insert(key, market);
+            count_new_pools += 1;
         }
     }
+    info!("👀 {} new markets founded !", count_new_pools);
 
     return markets_arb;
 }

@@ -61,6 +61,5 @@ pub async fn get_fresh_pools(tokens: Vec<TokenInArb>) -> HashMap<String, Market>
     }
     info!("⚠️⚠️ NO RAYDIUM_CLMM fresh pools !");
     info!("⚠️⚠️ NO ORCA fresh pools !");
-    info!("👀 {} new markets founded !", count_new_pools);
     return new_markets;
 }
