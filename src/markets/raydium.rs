@@ -36,7 +36,7 @@ impl RaydiumDEX {
 
         let mut pools_vec = Vec::new();
         
-        let data = fs::read_to_string("src\\markets\\cache\\raydium-markets.json").expect("LogRocket: error reading file");
+        let data = fs::read_to_string("src\\markets\\cache\\raydium-markets.json").expect("Error reading file");
         let json_value: Root  = serde_json::from_str(&data).unwrap();
 
         
@@ -218,35 +218,39 @@ pub async fn stream_raydium(account: Pubkey) -> Result<()> {
 
 // Simulate one route 
 // I want to get the data of the market i'm interested in this route
-pub async fn simulate_route_raydium(amount_in: f64, route: Route, market: Market, tokens_infos: HashMap<String, TokenInfos>) -> Result<(String, String), Box<dyn std::error::Error>> {
+pub async fn simulate_route_raydium(amount_in: u64, route: Route, market: Market, tokens_infos: HashMap<String, TokenInfos>) -> Result<(String, String), Box<dyn std::error::Error>> {
     // println!("account_data: {:?}", &market.account_data.clone().unwrap());
     // println!("market: {:?}", market.clone());
-    let raydium_data = AmmInfo::try_from_slice(&market.account_data.unwrap()).unwrap();
+    // let raydium_data = AmmInfo::try_from_slice(&market.account_data.unwrap()).unwrap();
     // println!("raydium_data: {:?}", raydium_data);
-    let decimals_0 = tokens_infos.get(&market.tokenMintA).unwrap().decimals;
-    let decimals_1 = tokens_infos.get(&market.tokenMintB).unwrap().decimals;
+    let token0 = tokens_infos.get(&market.tokenMintA).unwrap();
+    let token1 = tokens_infos.get(&market.tokenMintB).unwrap();
     let mut params: String = String::new();
 
     let amount_in_uint = amount_in as u64;
     if route.token_0to1 {
         params = format!(
-            "poolKeys={}&amountIn={}&currencyIn={}&decimalsIn={}&currencyOut={}&decimalsOut={}",
+            "poolKeys={}&amountIn={}&currencyIn={}&decimalsIn={}&symbolTokenIn={}&currencyOut={}&decimalsOut={}&symbolTokenOut={}",
             market.id,
             amount_in_uint,
             market.tokenMintA,
-            decimals_0,
+            token0.decimals,
+            token0.symbol,
             market.tokenMintB,
-            decimals_1
+            token1.decimals,
+            token1.symbol
         );
     } else {
         params = format!(
-            "poolKeys={}&amountIn={}&currencyIn={}&decimalsIn={}&currencyOut={}&decimalsOut={}",
+            "poolKeys={}&amountIn={}&currencyIn={}&decimalsIn={}&symbolTokenIn={}&currencyOut={}&decimalsOut={}&symbolTokenOut={}",
             market.id,
             amount_in_uint,
             market.tokenMintB,
-            decimals_1,
+            token1.decimals,
+            token1.symbol,
             market.tokenMintA,
-            decimals_0
+            token0.decimals,
+            token0.symbol
         );
     }
     // Simulate a swap
@@ -260,9 +264,9 @@ pub async fn simulate_route_raydium(amount_in: f64, route: Route, market: Market
     let res = make_request(req_url).await?;
     let json_value: SimulationRes = res.json().await?;
 
-    println!("estimatedAmountIn: {:?}", json_value.amountIn);
-    println!("estimatedAmountOut: {:?}", json_value.estimatedAmountOut);
-    println!("estimatedMinAmountOut: {:?}", json_value.estimatedMinAmountOut.clone().unwrap());
+    println!("estimatedAmountIn: {:?} {:?}", json_value.amountIn, token0.symbol);
+    println!("estimatedAmountOut: {:?} {:?}", json_value.estimatedAmountOut, token1.symbol);
+    println!("estimatedMinAmountOut: {:?} {:?}", json_value.estimatedMinAmountOut.clone().unwrap(), token1.symbol);
     
     Ok((
         json_value.estimatedAmountOut,

@@ -16,7 +16,7 @@ pub async fn run_arbitrage_strategy(socket: Client, dexs: Vec<Dex>, tokens: Vec<
     let markets_arb = get_markets_arb(dexs, tokens.clone()).await;
     let fresh_markets_arb = get_fresh_accounts_states(markets_arb.clone()).await;
     // println!("DEBUG {:?}", fresh_markets_arb);
-    // debug!("DEBUG {:?}", markets_arb.get(&"65shmpuYmxx5p7ggNCZbyrGLCXVqbBR1ZD5aAocRBUNG".to_string()));
+    debug!("DEBUG {:?}", markets_arb.get(&"3s3CzbFzkqLvXYA93M3uHCes2nc4SiuZ11emtpDJwCht".to_string()));
     // debug!("DEBUG {:?}", fresh_markets_arb.get(&"65shmpuYmxx5p7ggNCZbyrGLCXVqbBR1ZD5aAocRBUNG".to_string()));
 
     // Sort markets with low liquidity

@@ -28,7 +28,7 @@ impl RaydiumClmmDEX {
 
         let mut pools_vec = Vec::new();
         
-        let data = fs::read_to_string("src\\markets\\cache\\raydiumclmm-markets.json").expect("LogRocket: error reading file");
+        let data = fs::read_to_string("src\\markets\\cache\\raydiumclmm-markets.json").expect("Error reading file");
         let json_value: Root  = serde_json::from_str(&data).unwrap();
 
         for pool in json_value.data.clone() {

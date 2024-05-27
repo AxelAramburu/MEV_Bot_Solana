@@ -30,7 +30,7 @@ impl OrcaDex {
 
         let mut pools_vec = Vec::new();
         
-        let data = fs::read_to_string("src\\markets\\cache\\orca-markets.json").expect("LogRocket: error reading file");
+        let data = fs::read_to_string("src\\markets\\cache\\orca-markets.json").expect("Error reading file");
         let json_value: HashMap<String, Pool>  = serde_json::from_str(&data).unwrap();
 
         // println!("JSON Pools: {:?}", json_value);

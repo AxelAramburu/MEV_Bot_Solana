@@ -39,7 +39,7 @@ impl OrcaDexWhirpools {
 
         let mut pools_vec = Vec::new();
         
-        let data = fs::read_to_string("src\\markets\\cache\\orca_whirpools-markets.json").expect("LogRocket: error reading file");
+        let data = fs::read_to_string("src\\markets\\cache\\orca_whirpools-markets.json").expect("Error reading file");
         let json_value: Root = serde_json::from_str(&data).unwrap();
 
         // println!("JSON Pools: {:?}", json_value.whirlpools);
@@ -221,32 +221,36 @@ pub async fn stream_orca_whirpools(account: Pubkey) -> Result<()> {
 }
 
 // Simulate one route 
-pub async fn simulate_route_orca_whirpools(amount_in: f64, route: Route, market: Market, tokens_infos: HashMap<String, TokenInfos>) -> Result<(String, String), Box<dyn std::error::Error>> {
+pub async fn simulate_route_orca_whirpools(amount_in: u64, route: Route, market: Market, tokens_infos: HashMap<String, TokenInfos>) -> Result<(String, String), Box<dyn std::error::Error>> {
     // I want to get the data of the market i'm interested in this route
     let whirpool_data = unpack_from_slice(market.account_data.expect("No account data provided").as_slice()).unwrap();
 
-    let decimals_0 = tokens_infos.get(&market.tokenMintA).unwrap().decimals;
-    let decimals_1 = tokens_infos.get(&market.tokenMintB).unwrap().decimals;
+    let token_0 = tokens_infos.get(&market.tokenMintA).unwrap();
+    let token_1 = tokens_infos.get(&market.tokenMintB).unwrap();
     let mut params: String = String::new();
     if route.token_0to1 {
         params = format!(
-            "poolId={}&tokenInKey={}&tokenInDecimals={}&tokenOutKey={}&tokenOutDecimals={}&tickSpacing={}&amountIn={}",
+            "poolId={}&tokenInKey={}&tokenInDecimals={}&tokenInSymbol={}&tokenOutKey={}&tokenOutDecimals={}&tokenOutSymbol={}&tickSpacing={}&amountIn={}",
             route.pool_address,
             whirpool_data.token_mint_a,
-            decimals_0,
+            token_0.decimals,
+            token_0.symbol,
             whirpool_data.token_mint_b,
-            decimals_1,
+            token_1.decimals,
+            token_1.symbol,
             whirpool_data.tick_spacing,
             amount_in,
         );
     } else {
         params = format!(
-            "poolId={}&tokenInKey={}&tokenInDecimals={}&tokenOutKey={}&tokenOutDecimals={}&tickSpacing={}&amountIn={}",
+            "poolId={}&tokenInKey={}&tokenInDecimals={}&tokenInSymbol={}&tokenOutKey={}&tokenOutDecimals={}&tokenOutSymbol={}&tickSpacing={}&amountIn={}",
             route.pool_address,
             whirpool_data.token_mint_b,
-            decimals_1,
+            token_1.decimals,
+            token_1.symbol,
             whirpool_data.token_mint_a,
-            decimals_0,
+            token_0.decimals,
+            token_0.symbol,
             whirpool_data.tick_spacing,
             amount_in,
         );
@@ -266,9 +270,9 @@ pub async fn simulate_route_orca_whirpools(amount_in: f64, route: Route, market:
     let res = make_request(req_url).await?;
     let json_value: SimulationRes = res.json().await?;
 
-    println!("estimatedAmountIn: {:?}", json_value.amountIn);
-    println!("estimatedAmountOut: {:?}", json_value.estimatedAmountOut);
-    println!("estimatedMinAmountOut: {:?}", json_value.estimatedMinAmountOut.clone().unwrap());
+    println!("estimatedAmountIn: {:?} {:?}", json_value.amountIn, token_0.symbol);
+    println!("estimatedAmountOut: {:?} {:?}", json_value.estimatedAmountOut, token_1.symbol);
+    println!("estimatedMinAmountOut: {:?} {:?}", json_value.estimatedMinAmountOut.clone().unwrap(), token_1.symbol);
 
     Ok((
         json_value.estimatedAmountOut,

@@ -29,7 +29,9 @@ pub struct SwapPath {
 }
 #[derive(Debug, Clone)]
 pub struct TokenInfos {
+    pub address: String,
     pub decimals: u8,
+    pub symbol: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -39,7 +41,7 @@ pub struct SwapRouteSimulation {
     pub dex_label: DexLabel,
     pub token_in: String,
     pub token_out: String,
-    pub amount_in: f64,
+    pub amount_in: u64,
     pub estimated_amount_out: String,
     pub estimated_min_amount_out: String,
 
@@ -53,7 +55,7 @@ pub struct SwapPathResult {
     pub token_in_symbol: String,
     pub token_out: String,
     pub token_out_symbol: String,
-    pub amount_in: f64,
+    pub amount_in: u64,
     pub estimated_amount_out: String,
     pub estimated_min_amount_out: String,
     pub result: f64,
