@@ -36,7 +36,7 @@ impl MeteoraDEX {
 
         let mut pools_vec = Vec::new();
         
-        let data = fs::read_to_string("src\\markets\\cache\\meteora-markets.json").expect("LogRocket: error reading file");
+        let data = fs::read_to_string("src\\markets\\cache\\meteora-markets.json").expect("Error reading file");
         let json_value: Root = serde_json::from_str(&data).unwrap();
 
         
@@ -175,51 +175,39 @@ pub async fn fetch_new_meteora_pools(rpc_client: &RpcClient, token: String, on_t
 
 // Simulate one route 
 // I want to get the data of the market i'm interested in this route
-pub async fn simulate_route_meteora(amount_in: f64, route: Route, market: Market, tokens_infos: HashMap<String, TokenInfos>) -> Result<(String, String), Box<dyn std::error::Error>> {
+pub async fn simulate_route_meteora(amount_in: u64, route: Route, market: Market, tokens_infos: HashMap<String, TokenInfos>) -> Result<(String, String), Box<dyn std::error::Error>> {
     // println!("account_data: {:?}", &market.account_data.clone().unwrap());
     // println!("market: {:?}", market.clone());
-    let raydium_data = AccountData::try_from_slice(&market.account_data.expect("Account data problem // METEORA")).expect("Account data not fit bytes length");
-    // println!("raydium_data: {:?}", raydium_data);
-    let decimals_0 = tokens_infos.get(&market.tokenMintA).unwrap().decimals;
-    let decimals_1 = tokens_infos.get(&market.tokenMintB).unwrap().decimals;
-    let mut params: String = String::new();
+    // let meteora_data = AccountData::try_from_slice(&market.account_data.expect("Account data problem // METEORA")).expect("Account data not fit bytes length");
+
+    let token0 = tokens_infos.get(&market.tokenMintA).unwrap();
+    let token1 = tokens_infos.get(&market.tokenMintB).unwrap();
 
     let amount_in_uint = amount_in as u64;
-    if route.token_0to1 {
-        params = format!(
-            "poolKeys={}&amountIn={}&currencyIn={}&decimalsIn={}&currencyOut={}&decimalsOut={}",
-            market.id,
-            amount_in_uint,
-            market.tokenMintA,
-            decimals_0,
-            market.tokenMintB,
-            decimals_1
-        );
-    } else {
-        params = format!(
-            "poolKeys={}&amountIn={}&currencyIn={}&decimalsIn={}&currencyOut={}&decimalsOut={}",
-            market.id,
-            amount_in_uint,
-            market.tokenMintB,
-            decimals_1,
-            market.tokenMintA,
-            decimals_0
-        );
-    }
+
+    let params = format!(
+        "poolId={}&token0to1={}&amountIn={}&tokenInSymbol={}&tokenOutSymbol={}",
+        market.id,
+        route.token_0to1,
+        amount_in_uint,
+        if route.token_0to1 == true { token0.clone().symbol } else { token1.clone().symbol },
+        if route.token_0to1 == true { token1.clone().symbol } else { token0.clone().symbol },
+    );
+
     // Simulate a swap
     let env = Env::new();
     let domain = env.simulator_url;
 
-    let req_url = format!("{}raydium_quote?{}", domain, params);
+    let req_url = format!("{}meteora_quote?{}", domain, params);
     // println!("req_url: {:?}", req_url);
-    //URL like: http://localhost:3000/raydium_quote?poolKeys=58oQChx4yWmvKdwLLZzBi4ChoCc2fqCUWBkwMihLYQo2&amountIn=1000000&currencyIn=So11111111111111111111111111111111111111112&decimalsIn=9&currencyOut=EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v&decimalsOut=6
+    //URL like: http://localhost:3000/meteora_quote?poolId=FNZsxG8QrUb5er8NR2fHuLo9nkQqKzxLf6p96R6fggZH&token0to1=true&amountIn=100
     
     let res = make_request(req_url).await?;
     let json_value: SimulationRes = res.json().await?;
 
-    println!("estimatedAmountIn: {:?}", json_value.amountIn);
-    println!("estimatedAmountOut: {:?}", json_value.estimatedAmountOut);
-    println!("estimatedMinAmountOut: {:?}", json_value.estimatedMinAmountOut.clone().unwrap());
+    println!("estimatedAmountIn: {:?} {:?}", json_value.amountIn, token0.symbol);
+    println!("estimatedAmountOut: {:?} {:?}", json_value.estimatedAmountOut, token1.symbol);
+    println!("estimatedMinAmountOut: {:?} {:?}", json_value.estimatedMinAmountOut.clone().unwrap(), token1.symbol);
     
     Ok((
         json_value.estimatedAmountOut,

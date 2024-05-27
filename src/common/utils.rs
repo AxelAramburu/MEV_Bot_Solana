@@ -119,7 +119,7 @@ pub async fn get_tokens_infos(tokens: Vec<TokenInArb>) -> HashMap<String, TokenI
 
     let mut pubkeys_str: Vec<String> = Vec::new();
     let mut pubkeys: Vec<Pubkey> = Vec::new();
-    for token in tokens {
+    for token in tokens.clone() {
         pubkeys_str.push(token.address.clone());
         pubkeys.push(from_str(token.address.clone().as_str()).unwrap());
     }
@@ -131,7 +131,12 @@ pub async fn get_tokens_infos(tokens: Vec<TokenInArb>) -> HashMap<String, TokenI
         let account = account.clone().unwrap();
         let mint_layout = MintLayout::try_from_slice(&account.data).unwrap();
 
-        tokens_infos.insert(pubkeys_str[j].clone(), TokenInfos{decimals: mint_layout.decimals});
+        let symbol = tokens.iter().find(|r| *r.address == pubkeys_str[j]).expect("Symbol token not found");
+        tokens_infos.insert(pubkeys_str[j].clone(), TokenInfos{
+            address: pubkeys_str[j].clone(),
+            decimals: mint_layout.decimals,
+            symbol: symbol.clone().symbol
+        });
     }
     return tokens_infos;
 

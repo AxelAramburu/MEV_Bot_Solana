@@ -41,6 +41,8 @@ pub async fn get_markets_arb(dexs: Vec<Dex>, tokens: Vec<TokenInArb>) -> HashMap
             count_new_pools += 1;
         }
     }
+    let debug = markets_arb.get("3s3CzbFzkqLvXYA93M3uHCes2nc4SiuZ11emtpDJwCht");
+    println!("DEBUG: {:?}", debug.unwrap().account_data); 
     info!("👀 {} new markets founded !", count_new_pools);
 
     return markets_arb;

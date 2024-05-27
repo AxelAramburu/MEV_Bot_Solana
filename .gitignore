@@ -10,3 +10,4 @@
 /history
 .env
 PseudoCode.md
+src/markets/cache/meteora-markets.json
