@@ -1,27 +1,22 @@
 use crate::arbitrage::types::{Route, TokenInfos};
-use crate::markets::types::{Dex, DexLabel, Market, PoolItem, SimulationRes};
+use crate::markets::types::{Dex, DexLabel, Market, PoolItem, SimulationError, SimulationRes};
 use crate::markets::utils::toPairString;
 use crate::common::debug::print_json_segment;
 use crate::common::utils::{from_Pubkey, from_str, make_request};
 use crate::common::constants::Env;
 
 use borsh::{BorshDeserialize, BorshSerialize};
-use eth_encode_packed::ethabi::token;
 use solana_client::rpc_filter::{Memcmp, MemcmpEncodedBytes, RpcFilterType};
-use tokio::net::TcpStream;
 use std::collections::HashMap;
-use std::{fs::File, io::Read};
+use std::fs::File;
 use std::fs;
 use serde::{Deserialize, Deserializer, de, Serialize};
 use serde_json::Value;
 use reqwest::get;
 use std::io::{BufWriter, Write};
-use futures::StreamExt;
 use log::{info, error};
-use solana_account_decoder::{UiAccountData, UiAccountEncoding};
+use solana_account_decoder::UiAccountEncoding;
 use solana_program::pubkey::Pubkey;
-use solana_sdk::commitment_config::CommitmentConfig;
-use solana_pubsub_client::pubsub_client::PubsubClient;
 use anyhow::Result;
 use solana_client::rpc_client::RpcClient;
 use solana_client::rpc_config::{RpcAccountInfoConfig, RpcProgramAccountsConfig};
@@ -203,17 +198,27 @@ pub async fn simulate_route_meteora(amount_in: u64, route: Route, market: Market
     //URL like: http://localhost:3000/meteora_quote?poolId=FNZsxG8QrUb5er8NR2fHuLo9nkQqKzxLf6p96R6fggZH&token0to1=true&amountIn=100
     
     let res = make_request(req_url).await?;
-    let json_value: SimulationRes = res.json().await?;
-
-    println!("estimatedAmountIn: {:?} {:?}", json_value.amountIn, token0.symbol);
-    println!("estimatedAmountOut: {:?} {:?}", json_value.estimatedAmountOut, token1.symbol);
-    println!("estimatedMinAmountOut: {:?} {:?}", json_value.estimatedMinAmountOut.clone().unwrap(), token1.symbol);
+    let res_text = res.text().await?;
     
-    Ok((
-        json_value.estimatedAmountOut,
-        json_value.estimatedMinAmountOut.unwrap_or_default(),
-    ))
-
+    if let Ok(json_value) = serde_json::from_str::<SimulationRes>(&res_text) {
+            
+        println!("estimatedAmountIn: {:?} {:?}", json_value.amountIn, if route.token_0to1 == true { token0.clone().symbol } else { token1.clone().symbol });
+        println!("estimatedAmountOut: {:?} {:?}", json_value.estimatedAmountOut, if route.token_0to1 == true { token1.clone().symbol } else { token0.clone().symbol });
+        println!("estimatedMinAmountOut: {:?} {:?}", json_value.estimatedMinAmountOut.clone().unwrap(), if route.token_0to1 == true { token1.clone().symbol } else { token0.clone().symbol });
+        
+        return Ok((json_value.estimatedAmountOut, json_value.estimatedMinAmountOut.unwrap_or_default()))
+    } else if let Ok(error_value) = serde_json::from_str::<SimulationError>(&res_text) {
+        // println!("ERROR Value: {:?}", error_value.error);
+        Err(Box::new(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            error_value.error,
+        )))
+    } else {
+        Err(Box::new(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            "Unexpected response format",
+        )))
+    }
 }
 
 fn de_rating<'de, D: Deserializer<'de>>(deserializer: D) -> Result<f64, D::Error> {

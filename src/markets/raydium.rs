@@ -6,17 +6,14 @@ use crate::common::utils::{from_Pubkey, from_str, make_request};
 use crate::common::constants::Env;
 
 use borsh::{BorshDeserialize, BorshSerialize};
-use eth_encode_packed::ethabi::token;
 use solana_client::rpc_filter::{Memcmp, MemcmpEncodedBytes, RpcFilterType};
-use tokio::net::TcpStream;
 use std::collections::HashMap;
-use std::{fs::File, io::Read};
+use std::fs::File;
 use std::fs;
 use serde::{Deserialize, Deserializer, de, Serialize};
 use serde_json::Value;
 use reqwest::get;
 use std::io::{BufWriter, Write};
-use futures::StreamExt;
 use log::{info, error};
 use solana_account_decoder::{UiAccountData, UiAccountEncoding};
 use solana_program::pubkey::Pubkey;
@@ -25,6 +22,8 @@ use solana_pubsub_client::pubsub_client::PubsubClient;
 use anyhow::Result;
 use solana_client::rpc_client::RpcClient;
 use solana_client::rpc_config::{RpcAccountInfoConfig, RpcProgramAccountsConfig};
+
+use super::types::SimulationError;
 
 #[derive(Debug)]
 pub struct RaydiumDEX {
@@ -262,16 +261,27 @@ pub async fn simulate_route_raydium(amount_in: u64, route: Route, market: Market
     //URL like: http://localhost:3000/raydium_quote?poolKeys=58oQChx4yWmvKdwLLZzBi4ChoCc2fqCUWBkwMihLYQo2&amountIn=1000000&currencyIn=So11111111111111111111111111111111111111112&decimalsIn=9&currencyOut=EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v&decimalsOut=6
     
     let res = make_request(req_url).await?;
-    let json_value: SimulationRes = res.json().await?;
+    let res_text = res.text().await?;
 
-    println!("estimatedAmountIn: {:?} {:?}", json_value.amountIn, token0.symbol);
-    println!("estimatedAmountOut: {:?} {:?}", json_value.estimatedAmountOut, token1.symbol);
-    println!("estimatedMinAmountOut: {:?} {:?}", json_value.estimatedMinAmountOut.clone().unwrap(), token1.symbol);
-    
-    Ok((
-        json_value.estimatedAmountOut,
-        json_value.estimatedMinAmountOut.unwrap_or_default(),
-    ))
+    if let Ok(json_value) = serde_json::from_str::<SimulationRes>(&res_text) {
+        println!("estimatedAmountIn: {:?} {:?}", json_value.amountIn, if route.token_0to1 == true { token0.clone().symbol } else { token1.clone().symbol });
+        println!("estimatedAmountOut: {:?} {:?}", json_value.estimatedAmountOut, if route.token_0to1 == true { token1.clone().symbol } else { token0.clone().symbol });
+        println!("estimatedMinAmountOut: {:?} {:?}", json_value.estimatedMinAmountOut.clone().unwrap(), if route.token_0to1 == true { token1.clone().symbol } else { token0.clone().symbol });
+        
+        Ok((json_value.estimatedAmountOut,json_value.estimatedMinAmountOut.unwrap_or_default()))
+    } else if let Ok(error_value) = serde_json::from_str::<SimulationError>(&res_text) {
+        // println!("ERROR Value: {:?}", error_value.error);
+        Err(Box::new(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            error_value.error,
+        )))
+    } else {
+        Err(Box::new(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            "Unexpected response format",
+        )))
+    }
+
 
 }
 

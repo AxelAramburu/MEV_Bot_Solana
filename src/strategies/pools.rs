@@ -1,17 +1,11 @@
-use std::{collections::HashMap, mem};
-
+use std::collections::HashMap;
 use log::info;
-use solana_account_decoder::{UiAccountEncoding, UiDataSliceConfig};
-use solana_client::{
-    pubsub_client::PubsubClient, rpc_client::RpcClient, rpc_config::{RpcAccountInfoConfig, RpcProgramAccountsConfig}, rpc_filter::{Memcmp, MemcmpEncodedBytes, RpcFilterType}
-};
-use solana_sdk::{commitment_config::CommitmentConfig, signer::Signer};
-
+use solana_client::rpc_client::RpcClient;
+use solana_sdk::commitment_config::CommitmentConfig;
 use crate::{
-    arbitrage::types::TokenInArb, common::{
-        constants::Env,
-        utils::from_str,
-    }, markets::{meteora::fetch_new_meteora_pools, orca_whirpools::{fetch_new_orca_whirpools, unpack_from_slice, WhirlpoolAccount}, raydium::fetch_new_raydium_pools, types::{DexLabel, Market}} 
+    arbitrage::types::TokenInArb, common::
+        constants::Env
+    , markets::{meteora::fetch_new_meteora_pools, orca_whirpools::fetch_new_orca_whirpools, raydium::fetch_new_raydium_pools, types::Market} 
 };
 
 pub async fn get_fresh_pools(tokens: Vec<TokenInArb>) -> HashMap<String, Market> {

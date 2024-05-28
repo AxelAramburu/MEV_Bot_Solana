@@ -1,5 +1,4 @@
 use serde::Serialize;
-use solana_sdk::pubkey::Pubkey;
 
 use crate::markets::types::DexLabel;
 

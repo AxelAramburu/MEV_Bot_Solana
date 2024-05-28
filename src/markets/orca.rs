@@ -1,6 +1,6 @@
 use crate::common::constants::Env;
 use crate::markets::types::{Dex, DexLabel, Market, PoolItem};
-use crate::markets::utils::{toPairString};
+use crate::markets::utils::toPairString;
 use crate::common::utils::{from_str, from_Pubkey};
 use std::collections::HashMap;
 use std::{fs, fs::File};

@@ -1,29 +1,15 @@
 
 use std::collections::HashMap;
-
 use anyhow::Result;
-use solana_client::{
-        rpc_client::RpcClient,
-        rpc_config::RpcAccountInfoConfig,
-    };
-use solana_account_decoder::{UiAccountEncoding, UiDataSliceConfig, UiAccountData};
-use solana_pubsub_client::pubsub_client::PubsubClient;
-use solana_sdk::{
-        pubkey::Pubkey,
-        commitment_config::{CommitmentConfig, CommitmentLevel}
-    };
-
+use log::info;
+use solana_client::rpc_client::RpcClient;
+use solana_sdk::pubkey::Pubkey;
 use crate::{
     common::{
         constants::Env,
         utils::from_str,
     }, 
-    markets::{
-        orca::stream_orca, 
-        orca_whirpools::{stream_orca_whirpools, unpack_from_slice}, 
-        raydium_clmm::stream_raydium_clmm, 
-        types::{DexLabel, Market}
-    }
+    markets::types::{DexLabel, Market}
 };
 
 //Subscribe to all acounts changes with accountSubscribe
@@ -45,6 +31,7 @@ pub async fn stream_accounts_change(accounts: HashMap<Pubkey, DexLabel>) -> Resu
 pub async fn get_fresh_accounts_states(mut accounts: HashMap<String, Market>) -> HashMap<String, Market> {
     let env = Env::new();
     let rpc_client = RpcClient::new(env.rpc_url);
+    let mut counter_fresh_markets = 0;
 
     let mut markets_vec: Vec<Market> = Vec::new();
     let mut key_vec: Vec<String> = Vec::new();
@@ -68,10 +55,12 @@ pub async fn get_fresh_accounts_states(mut accounts: HashMap<String, Market>) ->
 
             markets_vec[j].account_data = Some(account_data);
             markets_vec[j].id = key_vec[j].clone();
+            counter_fresh_markets += 1;
             accounts.insert(key_vec[j].clone(), markets_vec[j].clone());
         }
     }
 
+    info!("💦💦 Numbers of fresh markets: {:?}", counter_fresh_markets);
     return accounts;
 }
 
