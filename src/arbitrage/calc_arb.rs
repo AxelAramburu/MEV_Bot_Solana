@@ -1,10 +1,5 @@
 use std::collections::{HashMap, HashSet};
-
-use borsh::BorshDeserialize;
 use log::info;
-
-use crate::markets::orca_whirpools::WhirlpoolAccount;
-use crate::markets::raydium::{MarketStateLayoutV3, RaydiumPool};
 use crate::markets::types::{Dex, DexLabel, Market};
 use crate::arbitrage::types::{TokenInArb, Route, SwapPath};
 use crate::strategies::pools::get_fresh_pools;
@@ -41,8 +36,6 @@ pub async fn get_markets_arb(dexs: Vec<Dex>, tokens: Vec<TokenInArb>) -> HashMap
             count_new_pools += 1;
         }
     }
-    let debug = markets_arb.get("3s3CzbFzkqLvXYA93M3uHCes2nc4SiuZ11emtpDJwCht");
-    println!("DEBUG: {:?}", debug.unwrap().account_data); 
     info!("👀 {} new markets founded !", count_new_pools);
 
     return markets_arb;
@@ -136,6 +129,12 @@ pub fn compute_routes(markets_arb: HashMap<String, Market>) -> Vec<Route> {
 }
 
 pub fn generate_swap_paths(all_routes: Vec<Route>, tokens: Vec<TokenInArb>) -> Vec<SwapPath> {
+
+    //Settings hop generations
+    let include_1hop = false;
+    let include_2hop = true;
+    info!("Hops Settings | 1 Hop : {} | 2 Hops : {}", if include_1hop == true {"✅"} else {"❌"}, if include_2hop == true {"✅"} else {"❌"});
+
     // On part du postulat que les pools de même jetons, du même Dex mais avec des fees différents peuvent avoir un prix différent,
     // donc on peut créer des routes 
     let mut all_swap_paths: Vec<SwapPath> = Vec::new();
@@ -144,12 +143,14 @@ pub fn generate_swap_paths(all_routes: Vec<Route>, tokens: Vec<TokenInArb>) -> V
     //One hop
     // Sol -> token -> Sol
 
-    for route_x in starting_routes.clone() {
-        for route_y in all_routes.clone() {
-            if (route_y.tokenOut == tokens[0].address && route_x.tokenOut == route_y.tokenIn && route_x.pool_address != route_y.pool_address) {
-                let paths = vec![route_x.clone(), route_y.clone()];
-                let id_paths = vec![route_x.clone().id, route_y.clone().id];
-                all_swap_paths.push(SwapPath{hops: 1, paths: paths.clone(), id_paths: id_paths});
+    if include_1hop == true {
+        for route_x in starting_routes.clone() {
+            for route_y in all_routes.clone() {
+                if (route_y.tokenOut == tokens[0].address && route_x.tokenOut == route_y.tokenIn && route_x.pool_address != route_y.pool_address) {
+                    let paths = vec![route_x.clone(), route_y.clone()];
+                    let id_paths = vec![route_x.clone().id, route_y.clone().id];
+                    all_swap_paths.push(SwapPath{hops: 1, paths: paths.clone(), id_paths: id_paths});
+                }
             }
         }
     }
@@ -159,20 +160,22 @@ pub fn generate_swap_paths(all_routes: Vec<Route>, tokens: Vec<TokenInArb>) -> V
 
     //Two hops
     // Sol -> token1 -> token2 -> Sol
-    for route_1 in starting_routes {
-        let all_routes_2: Vec<&Route> = all_routes.iter().filter(|route| route.tokenIn == route_1.tokenOut && route_1.pool_address != route.pool_address && route.tokenOut != tokens[0].address).collect();
-        for route_2 in all_routes_2 {
-            let all_routes_3: Vec<&Route> = all_routes.iter().filter(|route| 
-                route.tokenIn == route_2.tokenOut 
-                && route_2.pool_address != route.pool_address 
-                && route_1.pool_address != route.pool_address
-                && route.tokenOut == tokens[0].address
-            ).collect();
-            if all_routes_3.len() > 0 {
-                for route_3 in all_routes_3 {
-                    let paths = vec![route_1.clone(), route_2.clone(), route_3.clone()];
-                    let id_paths = vec![route_1.clone().id, route_2.clone().id, route_3.clone().id];
-                    all_swap_paths.push(SwapPath{hops: 2, paths: paths, id_paths: id_paths});
+    if include_2hop == true {
+        for route_1 in starting_routes {
+            let all_routes_2: Vec<&Route> = all_routes.iter().filter(|route| route.tokenIn == route_1.tokenOut && route_1.pool_address != route.pool_address && route.tokenOut != tokens[0].address).collect();
+            for route_2 in all_routes_2 {
+                let all_routes_3: Vec<&Route> = all_routes.iter().filter(|route| 
+                    route.tokenIn == route_2.tokenOut 
+                    && route_2.pool_address != route.pool_address 
+                    && route_1.pool_address != route.pool_address
+                    && route.tokenOut == tokens[0].address
+                ).collect();
+                if all_routes_3.len() > 0 {
+                    for route_3 in all_routes_3 {
+                        let paths = vec![route_1.clone(), route_2.clone(), route_3.clone()];
+                        let id_paths = vec![route_1.clone().id, route_2.clone().id, route_3.clone().id];
+                        all_swap_paths.push(SwapPath{hops: 2, paths: paths, id_paths: id_paths});
+                    }
                 }
             }
         }

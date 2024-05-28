@@ -1,7 +1,6 @@
-use std::{collections::HashMap, str::FromStr, sync::Arc};
+use std::collections::HashMap;
 use crate::markets::utils::toPairString;
 use serde::{Deserialize, Serialize};
-use strum::IntoEnumIterator; 
 use strum_macros::EnumIter;
 
 #[derive(Debug, Clone, EnumIter, Serialize, Eq, PartialEq, Hash)]
@@ -99,4 +98,8 @@ pub struct SimulationRes {
     pub amountIn: String,
     pub estimatedAmountOut: String,
     pub estimatedMinAmountOut: Option<String>
+}
+#[derive(Debug, Deserialize, Serialize)]
+pub struct SimulationError {
+    pub error: String,
 }

@@ -12,9 +12,7 @@ use reqwest::Error;
 use crate::{arbitrage::types::{TokenInArb, TokenInfos}, common::constants::{
     Env, PROJECT_NAME
 }};
-use solana_client::{
-    rpc_client::RpcClient,
-};
+use solana_client::rpc_client::RpcClient;
 
 // Function to format our console logs
 pub fn setup_logger() -> Result<(), fern::InitError> {

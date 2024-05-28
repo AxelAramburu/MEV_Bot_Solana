@@ -1,15 +1,12 @@
 use crate::arbitrage::types::{Route, TokenInfos};
 use crate::common::constants::Env;
-use crate::common::maths::from_x64_orca_wp;
 use crate::markets::types::{Dex, DexLabel, Market, PoolItem, SimulationRes};
-use crate::markets::utils::{toPairString};
+use crate::markets::utils::toPairString;
 use crate::common::utils::{from_Pubkey, from_str, make_request};
 use std::collections::HashMap;
 use std::{fs, fs::File};
 use std::io::Write;
 use borsh::{BorshDeserialize, BorshSerialize};
-use eth_encode_packed::ethabi::Address;
-use serde::de::IntoDeserializer;
 use serde::{Deserialize, Serialize};
 use reqwest::get;
 use log::{info, error};
@@ -22,9 +19,8 @@ use solana_sdk::commitment_config::CommitmentConfig;
 use solana_sdk::program_error::ProgramError;
 use solana_pubsub_client::pubsub_client::PubsubClient;
 use anyhow::Result;
-use solana_sdk::signer::keypair::Keypair;
-use hex::encode;
-use solana_sdk::account::Account;
+
+use super::types::SimulationError;
 
 #[derive(Debug)]
 pub struct OrcaDexWhirpools {
@@ -98,7 +94,8 @@ impl OrcaDexWhirpools {
                 fee: pool.fee_rate.clone() as u128,
                 dexLabel: DexLabel::ORCA_WHIRLPOOLS,
                 id: from_Pubkey(pool.address.clone()),
-                account_data: None,
+                //TODO: None here, be sure to refresh data after
+                account_data: None, 
                 liquidity: Some(pool.liquidity),
             };
 
@@ -268,40 +265,27 @@ pub async fn simulate_route_orca_whirpools(amount_in: u64, route: Route, market:
     // println!("req_url: {:?}", req_url);
 
     let res = make_request(req_url).await?;
-    let json_value: SimulationRes = res.json().await?;
+    let res_text = res.text().await?;
 
-    println!("estimatedAmountIn: {:?} {:?}", json_value.amountIn, token_0.symbol);
-    println!("estimatedAmountOut: {:?} {:?}", json_value.estimatedAmountOut, token_1.symbol);
-    println!("estimatedMinAmountOut: {:?} {:?}", json_value.estimatedMinAmountOut.clone().unwrap(), token_1.symbol);
+    if let Ok(json_value) = serde_json::from_str::<SimulationRes>(&res_text) {
 
-    Ok((
-        json_value.estimatedAmountOut,
-        json_value.estimatedMinAmountOut.unwrap_or_default(),
-    ))
+        println!("estimatedAmountIn: {:?} {:?}", json_value.amountIn, token_0.symbol);
+        println!("estimatedAmountOut: {:?} {:?}", json_value.estimatedAmountOut, token_1.symbol);
+        println!("estimatedMinAmountOut: {:?} {:?}", json_value.estimatedMinAmountOut.clone().unwrap(), token_1.symbol);
 
-    // match make_request(req_url).await {
-    //     Ok(res) => {
-    //         // Handle the successful response here
-    //         let json_value = res.json::<SimulationRes>().await;
-
-    //         match json_value {
-    //             Ok(value) => {
-    //                 println!("estimatedAmountIn: {:?}", value.amountIn);
-    //                 println!("estimatedAmountOut: {:?}", value.estimatedAmountOut);
-    //                 println!("estimatedMinAmountOut: {:?}", value.estimatedMinAmountOut.clone().unwrap());
-    //                 return (value.estimatedAmountOut, value.estimatedMinAmountOut.unwrap());
-    //             }
-    //             Err(value) => { 
-    //                 return (format!("value{:?}", value), format!(""));
-    //             }
-    //         }
-    //     }
-    //     Err(value) => { 
-    //        return (format!("value{:?}", value), format!(""));
-    //     }
-    // }
-    // let mut res = reqwest::get(req_url).await.expect("Error in request to simulator");
-
+        Ok((json_value.estimatedAmountOut, json_value.estimatedMinAmountOut.unwrap_or_default()))
+    } else if let Ok(error_value) = serde_json::from_str::<SimulationError>(&res_text) {
+        // println!("ERROR Value: {:?}", error_value.error);
+        Err(Box::new(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            error_value.error,
+        )))
+    } else {
+        Err(Box::new(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            "Unexpected response format",
+        )))
+    }
 }
 
 // ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
