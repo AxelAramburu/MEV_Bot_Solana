@@ -12,7 +12,7 @@ pub async fn simulate_path(socket: Client, path: SwapPath, markets: Vec<Market>,
     println!("🚕🚕🚕🚕     NEW PATH    🚕🚕🚕🚕");
     println!("Nb. Hops : {}", path.hops);
     let decimals = 9;
-    let mut amount_in = 5 * 10_u64.pow(decimals);
+    let mut amount_in = 1 * 10_u64.pow(decimals);
 
     let amount_begin= amount_in;
 
@@ -59,12 +59,12 @@ pub async fn simulate_path(socket: Client, path: SwapPath, markets: Vec<Market>,
                 println!(" ⚠️⚠️ ONE ORCA POOL ");
             },
             DexLabel::ORCA_WHIRLPOOLS => {
-                println!("ORCA_WHIRLPOOLS - POOL");
+                println!("🏊 ORCA_WHIRLPOOLS - POOL");
                 println!("Address: {:?}", route.pool_address);
-                match simulate_route_orca_whirpools(amount_in, route.clone(), market.unwrap(), tokens_infos.clone()).await {
+                match simulate_route_orca_whirpools(true, amount_in, route.clone(), market.unwrap(), tokens_infos.clone()).await {
                     Ok(value) => {
                         let (amount_out, min_amount_out) = value;
-                        println!("Amount out: {}", amount_out);
+                        // println!("Amount out: {}", amount_out);
                         
                         let swap_sim: SwapRouteSimulation = SwapRouteSimulation{
                             id_route: route.id.clone(),
@@ -105,12 +105,12 @@ pub async fn simulate_path(socket: Client, path: SwapPath, markets: Vec<Market>,
                 }
             },
             DexLabel::RAYDIUM => {
-                println!("RAYDIUM - POOL");
+                println!("🏊 RAYDIUM - POOL");
                 println!("Address: {:?}", route.pool_address);
-                match simulate_route_raydium(amount_in, route.clone(), market.unwrap(), tokens_infos.clone()).await {
+                match simulate_route_raydium(true, amount_in, route.clone(), market.unwrap(), tokens_infos.clone()).await {
                     Ok(value) => {
                         let (amount_out, min_amount_out) = value;
-                        println!("Amount out: {}", amount_out);
+                        // println!("Amount out: {}", amount_out);
         
                         let swap_sim: SwapRouteSimulation = SwapRouteSimulation{
                             id_route: route.id.clone(),
@@ -155,12 +155,12 @@ pub async fn simulate_path(socket: Client, path: SwapPath, markets: Vec<Market>,
             },
             DexLabel::METEORA => {
                 // println!(" ⚠️⚠️ ONE METEORA POOL ");
-                println!("METEORA - POOL");
+                println!("🏊 METEORA - POOL");
                 println!("Address: {:?}", route.pool_address);
-                match simulate_route_meteora(amount_in, route.clone(), market.unwrap(), tokens_infos.clone()).await {
+                match simulate_route_meteora(true, amount_in, route.clone(), market.unwrap(), tokens_infos.clone()).await {
                     Ok(value) => {
                         let (amount_out, min_amount_out) = value;
-                        println!("Amount out: {}", amount_out);
+                        // println!("Amount out: {}", amount_out);
         
                         let swap_sim: SwapRouteSimulation = SwapRouteSimulation{
                             id_route: route.id.clone(),
@@ -206,9 +206,7 @@ pub async fn simulate_path(socket: Client, path: SwapPath, markets: Vec<Market>,
     //If interesting path
     let difference = amount_in as f64 - amount_begin as f64;
     if difference > 0.0 {
-        info!("💸💸💸💸💸💸💸💸💸💸💸💸💸💸💸");
-        info!("💸💸💸💸💸 Path simulate {} positive difference", difference);
-        info!("💸💸💸💸💸💸💸💸💸💸💸💸💸💸💸");
+        info!("💸💸💸💸💸💸💸💸💸💸 Path simulate {} {} positive difference", difference / 10_f64.powf(decimals as f64), "SOL");
     }
 
     return (route_simulation, swap_simulation_result, difference);
@@ -234,7 +232,7 @@ pub async fn simulate_path_precision(amount_input: u64, socket: Client, path: Sw
             DexLabel::ORCA_WHIRLPOOLS => {
                 // println!("ORCA_WHIRLPOOLS - POOL");
                 // println!("Address: {:?}", route.pool_address);
-                match simulate_route_orca_whirpools(amount_in, route.clone(), market.unwrap(), tokens_infos.clone()).await {
+                match simulate_route_orca_whirpools(false, amount_in, route.clone(), market.unwrap(), tokens_infos.clone()).await {
                     Ok(value) => {
                         let (amount_out, min_amount_out) = value;
                         // println!("Amount out: {}", amount_out);
@@ -269,7 +267,7 @@ pub async fn simulate_path_precision(amount_input: u64, socket: Client, path: Sw
             DexLabel::RAYDIUM => {
                 // println!("RAYDIUM - POOL");
                 // println!("Address: {:?}", route.pool_address);
-                match simulate_route_raydium(amount_in, route.clone(), market.unwrap(), tokens_infos.clone()).await {
+                match simulate_route_raydium(false, amount_in, route.clone(), market.unwrap(), tokens_infos.clone()).await {
                     Ok(value) => {
                         let (amount_out, min_amount_out) = value;
                         // println!("Amount out: {}", amount_out);
@@ -309,7 +307,7 @@ pub async fn simulate_path_precision(amount_input: u64, socket: Client, path: Sw
                 // println!(" ⚠️⚠️ ONE METEORA POOL ");
                 // println!("METEORA - POOL");
                 // println!("Address: {:?}", route.pool_address);
-                match simulate_route_meteora(amount_in, route.clone(), market.unwrap(), tokens_infos.clone()).await {
+                match simulate_route_meteora(false, amount_in, route.clone(), market.unwrap(), tokens_infos.clone()).await {
                     Ok(value) => {
                         let (amount_out, min_amount_out) = value;
                         // println!("Amount out: {}", amount_out);
@@ -344,10 +342,10 @@ pub async fn simulate_path_precision(amount_input: u64, socket: Client, path: Sw
         }
     }
     
-    info!("🔎🔎 Swap path Id: {:?}", path.id_paths);
+    // info!("🔎🔎 Swap path Id: {:?}", path.id_paths);
     info!("🔎🔎💵💵 Precision Simulation: Amount In: {} {} // Amount Out: {} {}", amount_begin as f64 / 10_f64.powf(decimals as f64) , "SOL", amount_in as f64 / 10_f64.powf(decimals as f64), "SOL" );
     let difference = amount_in as f64 - amount_begin as f64;
-    info!("🔎🔎 Path simulate {} difference", difference);
+    info!("🔎🔎 Path simulate {} {} difference", difference / 10_f64.powf(decimals as f64), "SOL");
 
     return (swap_simulation_result, difference);
 }

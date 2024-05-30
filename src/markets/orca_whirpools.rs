@@ -218,7 +218,7 @@ pub async fn stream_orca_whirpools(account: Pubkey) -> Result<()> {
 }
 
 // Simulate one route 
-pub async fn simulate_route_orca_whirpools(amount_in: u64, route: Route, market: Market, tokens_infos: HashMap<String, TokenInfos>) -> Result<(String, String), Box<dyn std::error::Error>> {
+pub async fn simulate_route_orca_whirpools(printing_amt: bool, amount_in: u64, route: Route, market: Market, tokens_infos: HashMap<String, TokenInfos>) -> Result<(String, String), Box<dyn std::error::Error>> {
     // I want to get the data of the market i'm interested in this route
     let whirpool_data = unpack_from_slice(market.account_data.expect("No account data provided").as_slice()).unwrap();
 
@@ -268,11 +268,12 @@ pub async fn simulate_route_orca_whirpools(amount_in: u64, route: Route, market:
     let res_text = res.text().await?;
 
     if let Ok(json_value) = serde_json::from_str::<SimulationRes>(&res_text) {
-
-        println!("estimatedAmountIn: {:?} {:?}", json_value.amountIn, token_0.symbol);
-        println!("estimatedAmountOut: {:?} {:?}", json_value.estimatedAmountOut, token_1.symbol);
-        println!("estimatedMinAmountOut: {:?} {:?}", json_value.estimatedMinAmountOut.clone().unwrap(), token_1.symbol);
-
+        if printing_amt {
+            println!("estimatedAmountIn: {:?} {:?}", json_value.amountIn, token_0.symbol);
+            println!("estimatedAmountOut: {:?} {:?}", json_value.estimatedAmountOut, token_1.symbol);
+            println!("estimatedMinAmountOut: {:?} {:?}", json_value.estimatedMinAmountOut.clone().unwrap(), token_1.symbol);
+        }
+        
         Ok((json_value.estimatedAmountOut, json_value.estimatedMinAmountOut.unwrap_or_default()))
     } else if let Ok(error_value) = serde_json::from_str::<SimulationError>(&res_text) {
         // println!("ERROR Value: {:?}", error_value.error);

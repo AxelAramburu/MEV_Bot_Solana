@@ -22,6 +22,7 @@ async fn main() -> Result<()> {
     setup_logger().unwrap();
 
     info!("Starting MEV_Bot_Solana");
+    info!("⚠️⚠️ New fresh pools fetched on METEORA and RAYDIUM are excluded because a lot of time there have very low liquidity, potentially can be used on subscribe log strategy");
     info!("⚠️⚠️ Liquidity is fetch to API and can be outdated on Radyium Pool");
 
     let env = Env::new();

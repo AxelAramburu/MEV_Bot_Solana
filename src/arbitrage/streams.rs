@@ -60,7 +60,7 @@ pub async fn get_fresh_accounts_states(mut accounts: HashMap<String, Market>) ->
         }
     }
 
-    info!("💦💦 Numbers of fresh markets: {:?}", counter_fresh_markets);
+    info!("💦💦 Fresh data for {:?} markets", counter_fresh_markets);
     return accounts;
 }
 
