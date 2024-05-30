@@ -1,5 +1,5 @@
 use std::collections::{HashMap, HashSet};
-use log::info;
+use log::{debug, info};
 use crate::markets::types::{Dex, DexLabel, Market};
 use crate::arbitrage::types::{TokenInArb, Route, SwapPath};
 use crate::strategies::pools::get_fresh_pools;
@@ -46,6 +46,10 @@ pub fn calculate_arb(markets_arb: HashMap<String, Market>, tokens: Vec<TokenInAr
     //Sort valuables markets: ex: Remove low liquidity markets
     let mut sorted_markets_arb: HashMap<String, Market> = HashMap::new();
     let mut excluded_markets_arb: Vec<String> = Vec::new();
+
+    // for (key, market) in markets_arb.clone() {
+    //     info!("Address: {}, DexLabel: {:?}, Liquidity: {:?}", market.id, market.dexLabel, market.liquidity);
+    // }
     
     println!("⚠️⚠️ ORCA Pool not sorted");
     println!("⚠️⚠️ RAYDIUM_CLMM Pool not sorted");

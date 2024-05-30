@@ -170,7 +170,7 @@ pub async fn fetch_new_raydium_pools(rpc_client: &RpcClient, token: String, on_t
             dexLabel: DexLabel::RAYDIUM,
             id: from_Pubkey(account.0.clone()),
             account_data: Some(account.1.data),
-            liquidity: Some(1111111111111111111 as u128),
+            liquidity: Some(666 as u128),
         };
         new_markets.push((account.0, market));
     }
@@ -217,7 +217,7 @@ pub async fn stream_raydium(account: Pubkey) -> Result<()> {
 
 // Simulate one route 
 // I want to get the data of the market i'm interested in this route
-pub async fn simulate_route_raydium(amount_in: u64, route: Route, market: Market, tokens_infos: HashMap<String, TokenInfos>) -> Result<(String, String), Box<dyn std::error::Error>> {
+pub async fn simulate_route_raydium(printing_amt: bool, amount_in: u64, route: Route, market: Market, tokens_infos: HashMap<String, TokenInfos>) -> Result<(String, String), Box<dyn std::error::Error>> {
     // println!("account_data: {:?}", &market.account_data.clone().unwrap());
     // println!("market: {:?}", market.clone());
     // let raydium_data = AmmInfo::try_from_slice(&market.account_data.unwrap()).unwrap();
@@ -264,10 +264,11 @@ pub async fn simulate_route_raydium(amount_in: u64, route: Route, market: Market
     let res_text = res.text().await?;
 
     if let Ok(json_value) = serde_json::from_str::<SimulationRes>(&res_text) {
-        println!("estimatedAmountIn: {:?} {:?}", json_value.amountIn, if route.token_0to1 == true { token0.clone().symbol } else { token1.clone().symbol });
-        println!("estimatedAmountOut: {:?} {:?}", json_value.estimatedAmountOut, if route.token_0to1 == true { token1.clone().symbol } else { token0.clone().symbol });
-        println!("estimatedMinAmountOut: {:?} {:?}", json_value.estimatedMinAmountOut.clone().unwrap(), if route.token_0to1 == true { token1.clone().symbol } else { token0.clone().symbol });
-        
+        if printing_amt {
+            println!("estimatedAmountIn: {:?} {:?}", json_value.amountIn, if route.token_0to1 == true { token0.clone().symbol } else { token1.clone().symbol });
+            println!("estimatedAmountOut: {:?} {:?}", json_value.estimatedAmountOut, if route.token_0to1 == true { token1.clone().symbol } else { token0.clone().symbol });
+            println!("estimatedMinAmountOut: {:?} {:?}", json_value.estimatedMinAmountOut.clone().unwrap(), if route.token_0to1 == true { token1.clone().symbol } else { token0.clone().symbol });
+        }
         Ok((json_value.estimatedAmountOut,json_value.estimatedMinAmountOut.unwrap_or_default()))
     } else if let Ok(error_value) = serde_json::from_str::<SimulationError>(&res_text) {
         // println!("ERROR Value: {:?}", error_value.error);

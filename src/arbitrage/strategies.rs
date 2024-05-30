@@ -1,4 +1,5 @@
 use std::{collections::HashMap, fs::File};
+use borsh::error;
 use indicatif::{ProgressBar, ProgressStyle};
 use rust_socketio::{asynchronous::{Client}};
 
@@ -29,23 +30,39 @@ pub async fn run_arbitrage_strategy(socket: Client, dexs: Vec<Dex>, tokens: Vec<
     let mut swap_paths_results: VecSwapPathResult = VecSwapPathResult{result: Vec::new()};
 
     let mut counter_failed_paths = 0;
+    let mut counter_positive_paths = 0;
+    let mut error_paths: HashMap<Vec<u32>, u8> = HashMap::new();
     
     //Progress bar
     let bar = ProgressBar::new(all_paths.len() as u64);
-    bar.set_style(ProgressStyle::with_template("[{elapsed}] [{bar:160.cyan/blue}] ✅{pos:>3}/{len:3} {msg}/{pos}")
+    bar.set_style(ProgressStyle::with_template("[{elapsed}] [{bar:140.cyan/blue}] ✅ {pos:>3}/{len:3} {msg}")
     .unwrap()
     .progress_chars("##-"));
-    bar.set_message(format!("Failed routes {}", counter_failed_paths));
+    bar.set_message(format!("❌ Failed routes: {}/{} 💸 Positive routes: {}/{}", counter_failed_paths, bar.position(), counter_positive_paths, bar.position()));
 
     for (i, path) in all_paths.iter().enumerate() {     //Add this to limit iterations: .take(100)
         // println!("👀 Swap paths: {:?}", path);
+
+        // Verify error in previous paths to see if this path is interesting
+        let key = vec![path.id_paths[0], path.id_paths[1]];
+        let counter_opt = error_paths.get(&key.clone());
+        match counter_opt {
+            None => {},
+            Some(value) => {
+                if value >= &3 {
+                    error!("🔴⏭️  Skip the {:?} path because previous errors", path.id_paths);
+                    bar.inc(1);
+                    counter_failed_paths += 1;
+                    bar.set_message(format!("❌ Failed routes: {}/{} 💸 Positive routes: {}/{}", counter_failed_paths, bar.position(), counter_positive_paths, bar.position()));
+                    continue;
+                }
+            }
+        }
+
+
         // Get Pubkeys of the concerned markets
         let pubkeys: Vec<String> = path.paths.clone().iter().map(|route| route.clone().pool_address).collect();
-        // println!("pubkeys: {:?}", pubkeys);
-        // let string = ("v59cBFTuVaeHqabC8cNsBz4Q3cgdGeon3UZEE41EQCW").to_string();
-        // let field =  markets_arb.clone().get(&string);
         let markets: Vec<Market> = pubkeys.iter().filter_map(|key| fresh_markets_arb.get(key)).cloned().collect();
-        // println!("route_simulation: {:?}", route_simulation);
 
         let (new_route_simulation, swap_simulation_result, result_difference) = simulate_path(socket.clone(), path.clone(), markets.clone(), tokens_infos.clone(), route_simulation.clone()).await;
         
@@ -65,23 +82,43 @@ pub async fn run_arbitrage_strategy(socket: Client, dexs: Vec<Dex>, tokens: Vec<
             };
             swap_paths_results.result.push(sp_result);
 
+            // Reset errors if one path is good to only skip paths on 3 consecutives errors
+            let key = vec![path.id_paths[0], path.id_paths[1]];
+            error_paths.insert(key, 0);
+
             //Send interesting result in a more precise strategy
-            precision_strategy(socket.clone(), path.clone(), markets, tokens.clone(), tokens_infos.clone()).await;
             if result_difference > 0.0 {
+                counter_positive_paths += 1;
+                bar.set_message(format!("❌ Failed routes: {}/{} 💸 Positive routes: {}/{}", counter_failed_paths, bar.position(), counter_positive_paths, bar.position()));
+
+                precision_strategy(socket.clone(), path.clone(), markets, tokens.clone(), tokens_infos.clone()).await;
             }
         } else {
             counter_failed_paths += 1;
-        }
 
+            //Code to avoid simulations of all paths on min. 3 likely consecutive failed paths, for 2 hops here
+            if swap_simulation_result.len() == 0 {
+                let key = vec![path.id_paths[0], path.id_paths[1]];
+                let counter_opt = error_paths.get(&key.clone());
+                match counter_opt {
+                    None => {
+                        error_paths.insert(key, 1);
+                    }
+                    Some(value) => {
+                        error_paths.insert(key, value + 1);
+                    }
+                }
+            }
+        }
 
         route_simulation = new_route_simulation;
 
         bar.inc(1);
-        bar.set_message(format!("❌ Failed routes {}", counter_failed_paths));
+        bar.set_message(format!("❌ Failed routes: {}/{} 💸 Positive routes: {}/{}", counter_failed_paths, bar.position(), counter_positive_paths, bar.position()));
 
-        if (i != 0 && i % 100 == 0) || i == all_paths.len() {
-            let file_number = i / 100;
-            let symbols = tokens.iter().map(|token| &token.symbol).cloned().collect::<Vec<String>>().join("/");
+        if (i != 0 && i % 300 == 0) || i == all_paths.len() {
+            let file_number = i / 300;
+            let symbols = tokens.iter().map(|token| &token.symbol).cloned().collect::<Vec<String>>().join("-");
             let mut file = File::create(format!("results\\result_{}_{}.json", file_number, symbols)).unwrap();
             match serde_json::to_writer_pretty(&mut file, &swap_paths_results) {
                 Ok(value) => {
@@ -117,26 +154,28 @@ pub async fn precision_strategy(socket: Client, path: SwapPath, markets: Vec<Mar
         10 * 10_u64.pow(decimals),
         20 * 10_u64.pow(decimals)
     ];
-
+    
     let mut result_amt = 0.0;
 
     for (index, amount_in) in amounts_simulations.iter().enumerate() {
         let (swap_simulation_result, result_difference) = simulate_path_precision(amount_in.clone(), socket.clone(), path.clone(), markets.clone(), tokens_infos.clone()).await;
 
-        let sp_result: SwapPathResult = SwapPathResult{ 
-            path_id: index as u32, 
-            hops: path.hops, 
-            route_simulations: swap_simulation_result.clone(), 
-            token_in: tokens[0].address.clone(), 
-            token_in_symbol: tokens[0].symbol.clone(), 
-            token_out: tokens[0].address.clone(), 
-            token_out_symbol: tokens[0].symbol.clone(), 
-            amount_in: swap_simulation_result[0].amount_in.clone(), 
-            estimated_amount_out: swap_simulation_result[swap_simulation_result.len() - 1].estimated_amount_out.clone(), 
-            estimated_min_amount_out: swap_simulation_result[swap_simulation_result.len() - 1].estimated_min_amount_out.clone(), 
-            result: result_difference
-        };
-        swap_paths_results.result.push(sp_result);
+        if swap_simulation_result.len() >= path.hops as usize {
+            let sp_result: SwapPathResult = SwapPathResult{ 
+                path_id: index as u32, 
+                hops: path.hops, 
+                route_simulations: swap_simulation_result.clone(), 
+                token_in: tokens[0].address.clone(), 
+                token_in_symbol: tokens[0].symbol.clone(), 
+                token_out: tokens[0].address.clone(), 
+                token_out_symbol: tokens[0].symbol.clone(), 
+                amount_in: swap_simulation_result[0].amount_in.clone(), 
+                estimated_amount_out: swap_simulation_result[swap_simulation_result.len() - 1].estimated_amount_out.clone(), 
+                estimated_min_amount_out: swap_simulation_result[swap_simulation_result.len() - 1].estimated_min_amount_out.clone(), 
+                result: result_difference
+            };
+            swap_paths_results.result.push(sp_result);
+        }
 
         if result_difference > result_amt {
             result_amt = result_difference;
