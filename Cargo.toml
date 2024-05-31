@@ -10,6 +10,8 @@ edition = "2021"
 
 [dependencies]
 lb_clmm = { path = "./programs/lb_clmm" }
+raydium_amm = { path = "./programs/raydium_amm" }
+# raydium-library = { git = "https://github.com/raydium-io/raydium-library" }
 url = "2.3.1"
 dotenv = "0.15.0"
 anyhow = "1.0.70"
@@ -63,6 +65,8 @@ anchor-client = {version = "0.30.0", features = ["async"]}
 clap = "4.5.4"
 anchor-lang = "0.30.0"
 anchor-spl = "0.30.0"
+serum_dex = "0.5.4"
+safe-transmute = "0.11.3"
 
 [profile.release]
 codegen-units = 1

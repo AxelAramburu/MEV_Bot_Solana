@@ -1,19 +1,20 @@
 use log::info;
 use solana_client::{rpc_client::RpcClient, rpc_config::RpcSendTransactionConfig};
-use solana_sdk::{commitment_config::CommitmentConfig, instruction, signature::{read_keypair_file, Keypair}, signer::Signer};
+use solana_sdk::{commitment_config::CommitmentConfig, instruction::{self, Instruction}, signature::{read_keypair_file, Keypair}, signer::Signer};
 use anchor_client::Client;
+use solana_sdk::{pubkey::Pubkey, transaction::Transaction};
 
-use crate::{arbitrage::types::SwapPathResult, common::{constants::Env, utils::from_str}};
+use crate::{arbitrage::types::SwapPathResult, common::{constants::Env, utils::from_str}, markets::types::DexLabel};
 
-use super::meteoradlmm_swap::{construct_meteora_instructions, SwapParameters};
+use super::{meteoradlmm_swap::{construct_meteora_instructions, SwapParametersMeteora}, raydium_swap::{construct_raydium_instructions, SwapParametersRaydium}};
 
 pub async fn create_transaction(transaction_infos: SwapPathResult) {
     info!("🔄 Create transaction.... ");
 
     let env = Env::new();
+    let rpc_client: RpcClient = RpcClient::new(env.rpc_url);
 
     let payer = read_keypair_file(env.payer_keypair_path).expect("Wallet keypair file not found");
-
     info!("💳 Wallet {:#?}", payer.pubkey());
 
     let commitment_config = CommitmentConfig::confirmed();
@@ -26,8 +27,14 @@ pub async fn create_transaction(transaction_infos: SwapPathResult) {
         min_context_slot: None,
     };
 
-    construct_transaction(transaction_infos, payer, transaction_config).await;
+    let swap_instructions = construct_transaction(transaction_infos, transaction_config).await;
     
+    let txn = Transaction::new_signed_with_payer(
+        &swap_instructions,
+        Some(&payer.pubkey()),
+        &vec![&payer],
+        rpc_client.get_latest_blockhash().expect("Error in get latest blockhash"),
+    );
     // ----->   Create a program, send instructions & execute on it, I can add a revert check to avoid potentials loss
 
     // ----->   1) Create a transaction structure 
@@ -36,11 +43,40 @@ pub async fn create_transaction(transaction_infos: SwapPathResult) {
     //              2.2) 
 }
 
-pub async fn construct_transaction(transaction_infos: SwapPathResult, payer: Keypair, transaction_config: RpcSendTransactionConfig) {
-    let swap_params: SwapParameters = SwapParameters{
-        lb_pair: from_str(transaction_infos.route_simulations[0].pool_address.as_str()).unwrap(),
-        amount_in: transaction_infos.route_simulations[0].amount_in,
-        swap_for_y: transaction_infos.route_simulations[0].token_0to1,
-    };
-    let (compute_budget_ix, accounts, remaining_accounts, ix) = construct_meteora_instructions(transaction_config, payer, swap_params, transaction_infos.estimated_min_amount_out.parse().unwrap()).await;
+pub async fn construct_transaction(transaction_infos: SwapPathResult, transaction_config: RpcSendTransactionConfig) -> Vec<Instruction> {
+    
+    let mut swap_instructions: Vec<Instruction> = Vec::new();
+    for route_sim in transaction_infos.route_simulations.clone() {
+        match route_sim.dex_label {
+            DexLabel::METEORA => {
+                let swap_params: SwapParametersMeteora = SwapParametersMeteora{
+                    lb_pair: from_str(transaction_infos.route_simulations[0].pool_address.as_str()).unwrap(),
+                    amount_in: transaction_infos.route_simulations[0].amount_in,
+                    swap_for_y: transaction_infos.route_simulations[0].token_0to1,
+                };
+                let (compute_budget_ix, accounts, remaining_accounts, ix) = construct_meteora_instructions(transaction_config, swap_params.clone(), transaction_infos.estimated_min_amount_out.parse().unwrap()).await;
+            }
+            DexLabel::RAYDIUM => {
+                let swap_params: SwapParametersRaydium = SwapParametersRaydium{
+                    pool: from_str(transaction_infos.route_simulations[0].pool_address.as_str()).unwrap(),
+                    input_token_mint: from_str(route_sim.token_in.as_str()).unwrap(),
+                    output_token_mint: from_str(route_sim.token_out.as_str()).unwrap(),
+                    amount_in: transaction_infos.route_simulations[0].amount_in,
+                    swap_for_y: transaction_infos.route_simulations[0].token_0to1,
+                };
+                let instruction = construct_raydium_instructions(swap_params, transaction_config, transaction_infos.estimated_min_amount_out.parse().unwrap());
+                swap_instructions.push(instruction);
+            }
+            DexLabel::RAYDIUM_CLMM => {
+                info!("⚠️ RAYDIUM_CLMM TX NOT IMPLEMENTED");
+            }
+            DexLabel::ORCA_WHIRLPOOLS => {
+
+            }
+            DexLabel::ORCA => {
+                info!("⚠️ ORCA TX NOT IMPLEMENTED");
+            }
+        }
+    }
+    return swap_instructions;
 }
