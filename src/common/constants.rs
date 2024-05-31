@@ -13,6 +13,7 @@ pub struct Env {
     pub geyser_access_token: String,
     pub simulator_url: String,
     pub ws_simulator_url: String,
+    pub payer_keypair_path: String,
 
 }
 
@@ -26,7 +27,7 @@ impl Env {
             geyser_access_token: get_env("GEYSER_ACCESS_TOKEN"),
             simulator_url: get_env("SIMULATOR_URL"),
             ws_simulator_url: get_env("WS_SIMULATOR_URL"),
-
+            payer_keypair_path: get_env("PAYER_KEYPAIR_PATH"),
         }
     }
 }

@@ -3,9 +3,9 @@ use borsh::error;
 use indicatif::{ProgressBar, ProgressStyle};
 use rust_socketio::{asynchronous::{Client}};
 
-use crate::arbitrage::{
+use crate::{arbitrage::{
     calc_arb::{calculate_arb, get_markets_arb}, simulate::simulate_path, streams::get_fresh_accounts_states, types::{SwapPathResult, SwapRouteSimulation, VecSwapPathResult}
-};
+}, transactions::create_transaction::{self, create_transaction}};
 use crate::markets::types::{Dex,Market};
 use super::{simulate::simulate_path_precision, types::{SwapPath, TokenInArb, TokenInfos}};
 use log::{debug, error, info};
@@ -40,8 +40,11 @@ pub async fn run_arbitrage_strategy(socket: Client, dexs: Vec<Dex>, tokens: Vec<
     .progress_chars("##-"));
     bar.set_message(format!("❌ Failed routes: {}/{} 💸 Positive routes: {}/{}", counter_failed_paths, bar.position(), counter_positive_paths, bar.position()));
 
+
+    //Begin simulate all paths
     for (i, path) in all_paths.iter().enumerate() {     //Add this to limit iterations: .take(100)
         // println!("👀 Swap paths: {:?}", path);
+        println!("👀 iiiiiiiiiiiiiiii: {}", i);
 
         // Verify error in previous paths to see if this path is interesting
         let key = vec![path.id_paths[0], path.id_paths[1]];
@@ -67,9 +70,15 @@ pub async fn run_arbitrage_strategy(socket: Client, dexs: Vec<Dex>, tokens: Vec<
         let (new_route_simulation, swap_simulation_result, result_difference) = simulate_path(socket.clone(), path.clone(), markets.clone(), tokens_infos.clone(), route_simulation.clone()).await;
         
         if swap_simulation_result.len() >= path.hops as usize {
+            // tokens.iter().map(|token| &token.symbol).cloned().collect::<Vec<String>>().join("-");
+
+            let mut tokens_path = swap_simulation_result.iter().map(|swap_sim| tokens_infos.get(&swap_sim.token_in).unwrap().symbol.clone()).collect::<Vec<String>>().join("-");
+            tokens_path = format!("{}-{}",tokens_path, tokens[0].symbol.clone());
+
             let sp_result: SwapPathResult = SwapPathResult{ 
                 path_id: i as u32, 
-                hops: path.hops, 
+                hops: path.hops,
+                tokens_path: tokens_path, 
                 route_simulations: swap_simulation_result.clone(), 
                 token_in: tokens[0].address.clone(), 
                 token_in_symbol: tokens[0].symbol.clone(), 
@@ -116,7 +125,7 @@ pub async fn run_arbitrage_strategy(socket: Client, dexs: Vec<Dex>, tokens: Vec<
         bar.inc(1);
         bar.set_message(format!("❌ Failed routes: {}/{} 💸 Positive routes: {}/{}", counter_failed_paths, bar.position(), counter_positive_paths, bar.position()));
 
-        if (i != 0 && i % 300 == 0) || i == all_paths.len() {
+        if (i != 0 && i % 300 == 0) || i == all_paths.len() - 1 {
             let file_number = i / 300;
             let symbols = tokens.iter().map(|token| &token.symbol).cloned().collect::<Vec<String>>().join("-");
             let mut file = File::create(format!("results\\result_{}_{}.json", file_number, symbols)).unwrap();
@@ -150,20 +159,27 @@ pub async fn precision_strategy(socket: Client, path: SwapPath, markets: Vec<Mar
     let amounts_simulations = vec![
         5 * 10_u64.pow(decimals - 1),
         1 * 10_u64.pow(decimals),
+        // 2 * 10_u64.pow(decimals),
+        // 3 * 10_u64.pow(decimals),
         5 * 10_u64.pow(decimals),
         10 * 10_u64.pow(decimals),
         20 * 10_u64.pow(decimals)
     ];
     
     let mut result_amt = 0.0;
+    let mut sp_to_tx: Option<SwapPathResult> = None;
 
     for (index, amount_in) in amounts_simulations.iter().enumerate() {
         let (swap_simulation_result, result_difference) = simulate_path_precision(amount_in.clone(), socket.clone(), path.clone(), markets.clone(), tokens_infos.clone()).await;
 
         if swap_simulation_result.len() >= path.hops as usize {
+            let mut tokens_path = swap_simulation_result.iter().map(|swap_sim| tokens_infos.get(&swap_sim.token_in).unwrap().symbol.clone()).collect::<Vec<String>>().join("-");
+            tokens_path = format!("{}-{}",tokens_path, tokens[0].symbol.clone());
+
             let sp_result: SwapPathResult = SwapPathResult{ 
                 path_id: index as u32, 
                 hops: path.hops, 
+                tokens_path: tokens_path,
                 route_simulations: swap_simulation_result.clone(), 
                 token_in: tokens[0].address.clone(), 
                 token_in_symbol: tokens[0].symbol.clone(), 
@@ -174,12 +190,18 @@ pub async fn precision_strategy(socket: Client, path: SwapPath, markets: Vec<Mar
                 estimated_min_amount_out: swap_simulation_result[swap_simulation_result.len() - 1].estimated_min_amount_out.clone(), 
                 result: result_difference
             };
-            swap_paths_results.result.push(sp_result);
-        }
-
-        if result_difference > result_amt {
-            result_amt = result_difference;
+            swap_paths_results.result.push(sp_result.clone());
+            
+            if result_difference > result_amt {
+                result_amt = result_difference;
+                println!("result_amt: {}", result_amt);
+                sp_to_tx = Some(sp_result.clone());
+            }
         }
     }
+    if result_amt > 0.1 && sp_to_tx.is_some() {
+        create_transaction(sp_to_tx.unwrap());
+    }
     
+
 }   

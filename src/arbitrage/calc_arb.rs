@@ -135,7 +135,7 @@ pub fn compute_routes(markets_arb: HashMap<String, Market>) -> Vec<Route> {
 pub fn generate_swap_paths(all_routes: Vec<Route>, tokens: Vec<TokenInArb>) -> Vec<SwapPath> {
 
     //Settings hop generations
-    let include_1hop = false;
+    let include_1hop = true;
     let include_2hop = true;
     info!("Hops Settings | 1 Hop : {} | 2 Hops : {}", if include_1hop == true {"✅"} else {"❌"}, if include_2hop == true {"✅"} else {"❌"});
 
