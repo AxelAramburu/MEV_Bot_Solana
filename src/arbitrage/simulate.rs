@@ -9,7 +9,7 @@ use crate::markets::{orca_whirpools::simulate_route_orca_whirpools, raydium::sim
 use super::types::{SwapPath, SwapRouteSimulation, TokenInfos};
 
 pub async fn simulate_path(socket: Client, path: SwapPath, markets: Vec<Market>, tokens_infos: HashMap<String, TokenInfos>, mut route_simulation: HashMap<Vec<u32>, Vec<SwapRouteSimulation>>) -> (HashMap<Vec<u32>, Vec<SwapRouteSimulation>>, Vec<SwapRouteSimulation>, f64) {
-    println!("🚕🚕🚕🚕     NEW PATH    🚕🚕🚕🚕");
+    println!("🚕🚕🚕🚕  NEW PATH  🚕🚕🚕🚕");
     println!("Nb. Hops : {}", path.hops);
     let decimals = 9;
     let mut amount_in = 1 * 10_u64.pow(decimals);
@@ -70,6 +70,7 @@ pub async fn simulate_path(socket: Client, path: SwapPath, markets: Vec<Market>,
                             id_route: route.id.clone(),
                             pool_address: route.pool_address.clone(),
                             dex_label: DexLabel::ORCA_WHIRLPOOLS,
+                            token_0to1: route.token_0to1,
                             token_in: route.tokenIn.clone(),
                             token_out: route.tokenOut.clone(),
                             amount_in: amount_in,
@@ -116,6 +117,7 @@ pub async fn simulate_path(socket: Client, path: SwapPath, markets: Vec<Market>,
                             id_route: route.id.clone(),
                             pool_address: route.pool_address.clone(),
                             dex_label: DexLabel::RAYDIUM,
+                            token_0to1: route.token_0to1,
                             token_in: route.tokenIn.clone(),
                             token_out: route.tokenOut.clone(),
                             amount_in: amount_in,
@@ -166,6 +168,7 @@ pub async fn simulate_path(socket: Client, path: SwapPath, markets: Vec<Market>,
                             id_route: route.id.clone(),
                             pool_address: route.pool_address.clone(),
                             dex_label: DexLabel::RAYDIUM,
+                            token_0to1: route.token_0to1,
                             token_in: route.tokenIn.clone(),
                             token_out: route.tokenOut.clone(),
                             amount_in: amount_in,
@@ -241,6 +244,7 @@ pub async fn simulate_path_precision(amount_input: u64, socket: Client, path: Sw
                             id_route: route.id.clone(),
                             pool_address: route.pool_address.clone(),
                             dex_label: DexLabel::ORCA_WHIRLPOOLS,
+                            token_0to1: route.token_0to1,
                             token_in: route.tokenIn.clone(),
                             token_out: route.tokenOut.clone(),
                             amount_in: amount_in,
@@ -276,6 +280,7 @@ pub async fn simulate_path_precision(amount_input: u64, socket: Client, path: Sw
                             id_route: route.id.clone(),
                             pool_address: route.pool_address.clone(),
                             dex_label: DexLabel::RAYDIUM,
+                            token_0to1: route.token_0to1,
                             token_in: route.tokenIn.clone(),
                             token_out: route.tokenOut.clone(),
                             amount_in: amount_in,
@@ -316,6 +321,7 @@ pub async fn simulate_path_precision(amount_input: u64, socket: Client, path: Sw
                             id_route: route.id.clone(),
                             pool_address: route.pool_address.clone(),
                             dex_label: DexLabel::RAYDIUM,
+                            token_0to1: route.token_0to1,
                             token_in: route.tokenIn.clone(),
                             token_out: route.tokenOut.clone(),
                             amount_in: amount_in,

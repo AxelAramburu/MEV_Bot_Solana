@@ -38,6 +38,7 @@ pub struct SwapRouteSimulation {
     pub id_route: u32,
     pub pool_address: String,
     pub dex_label: DexLabel,
+    pub token_0to1: bool,
     pub token_in: String,
     pub token_out: String,
     pub amount_in: u64,
@@ -49,6 +50,7 @@ pub struct SwapRouteSimulation {
 pub struct SwapPathResult {
     pub path_id: u32,
     pub hops: u8,
+    pub tokens_path: String,
     pub route_simulations: Vec<SwapRouteSimulation>,
     pub token_in: String,
     pub token_in_symbol: String,
