@@ -1005,6 +1005,7 @@ pub fn swap_base_in(
     amm_pool: &Pubkey,
     amm_authority: &Pubkey,
     amm_open_orders: &Pubkey,
+    amm_target_orders: &Pubkey,
     amm_coin_vault: &Pubkey,
     amm_pc_vault: &Pubkey,
     market_program: &Pubkey,
@@ -1052,7 +1053,7 @@ pub fn swap_base_in(
         AccountMeta::new(*user_token_destination, false),
         AccountMeta::new_readonly(*user_source_owner, true),
     ];
-
+    
     Ok(Instruction {
         program_id: *amm_program,
         accounts,
