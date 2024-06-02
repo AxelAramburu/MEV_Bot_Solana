@@ -2,13 +2,14 @@ use anyhow::Result;
 use futures::FutureExt;
 use log::info;
 use MEV_Bot_Solana::arbitrage::strategies::run_arbitrage_strategy;
+use MEV_Bot_Solana::transactions::create_transaction::create_transaction;
 use std::collections::HashMap;
 use tokio::task::JoinSet;
 use solana_client::rpc_client::RpcClient;
 use MEV_Bot_Solana::common::constants::Env;
 use MEV_Bot_Solana::markets::pools::load_all_pools;
 use MEV_Bot_Solana::common::utils::{get_tokens_infos, setup_logger};
-use MEV_Bot_Solana::arbitrage::types::{TokenInArb, TokenInfos};
+use MEV_Bot_Solana::arbitrage::types::{SwapPathResult, SwapRouteSimulation, TokenInArb, TokenInfos};
 
 use rust_socketio::{Payload, asynchronous::{Client, ClientBuilder},};
 
@@ -31,10 +32,10 @@ async fn main() -> Result<()> {
 
     let mut set: JoinSet<()> = JoinSet::new();
     
-    info!("🏊 Launch pools fetching infos...");
-    //Params is for re-fetching pools on API or not
-    let dexs = load_all_pools(false).await;
-    info!("🏊 {} Dexs are loaded", dexs.len());
+    // info!("🏊 Launch pools fetching infos...");
+    // //Params is for re-fetching pools on API or not
+    // let dexs = load_all_pools(false).await;
+    // info!("🏊 {} Dexs are loaded", dexs.len());
     
     // // The first token is the base token (here SOL)
     // let tokens_to_arb: Vec<TokenInArb> = vec![
@@ -57,7 +58,7 @@ async fn main() -> Result<()> {
         // TokenInArb{address: String::from("GoxLaNFQiqnV97p7aRGP4ghvLZ4GwJN9NUNPpozvJZCV"), symbol: String::from("OSAK")},
     ];
 
-    let tokens_infos: HashMap<String, TokenInfos> = get_tokens_infos(tokens_to_arb.clone()).await;
+    // let tokens_infos: HashMap<String, TokenInfos> = get_tokens_infos(tokens_to_arb.clone()).await;
 
     info!("🪙🪙 Tokens Infos: {:?}", tokens_to_arb);
     info!("📈 Launch arbitrage process...");
@@ -88,31 +89,39 @@ async fn main() -> Result<()> {
         .connect()
         .await
         .expect("Connection failed");
-    
-    // let json_payload = json!({
-    //     "poolId": "HJPjoWUrhoZzkNfRpHuieeFk9WcZWjwy6PBjZ81ngndJ",
-    //     "tokenInKey": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
-    //     "tokenInDecimals": "6",
-    //     "tokenOutKey": "So11111111111111111111111111111111111111112",
-    //     "tokenOutDecimals": "9",
-    //     "tickSpacing": "64",
-    //     "amountIn": "929",
-    // });
-    
-    // socket
-    // .emit("orca_quote", json_payload.clone())
-    // .await
-    // .expect("Server unreachable");
-    
-    set.spawn(run_arbitrage_strategy(socket, dexs, tokens_to_arb, tokens_infos));
 
-    //Pseudo code
-    // LOOP {
-        // 1) Get all the fresh infos, with price etc 
-        // 2) Compute all the paths and sort the better path if one exist
-    // }
-    // 3) Send transaction  
 
+    
+    // set.spawn(run_arbitrage_strategy(socket, dexs, tokens_to_arb, tokens_infos));
+
+    let spr = SwapPathResult{ 
+        path_id: 1,
+        hops: 1,
+        tokens_path: "".to_string(),
+        route_simulations: vec![
+            SwapRouteSimulation{ 
+                id_route: 0,
+                pool_address: "48XCxXxuVjEefX8K1qAMD2yELYUkXihYQegtSKXf4JXG".to_string(),
+                dex_label: MEV_Bot_Solana::markets::types::DexLabel::RAYDIUM,
+                token_0to1: true,
+                token_in: "So11111111111111111111111111111111111111112".to_string(),
+                token_out: "9LAjk5F4rFetELE4CygcBbZ5hYc2QhRrbJjfm5Q26jWM".to_string(),
+                amount_in: 1000000, // 0.001 SOL
+                estimated_amount_out:"710927".to_string(),
+                estimated_min_amount_out: "703888".to_string()
+            }
+        ],
+        token_in: "So11111111111111111111111111111111111111112".to_string(),
+        token_in_symbol: "SOL".to_string(),
+        token_out: "So11111111111111111111111111111111111111112".to_string(),
+        token_out_symbol: "SOL".to_string(),
+        amount_in: 1000000000,
+        estimated_amount_out: "710927".to_string(),
+        estimated_min_amount_out: "703888".to_string(),
+        result: -46478200.0
+    };
+
+    create_transaction(spr).await;
     
     while let Some(res) = set.join_next().await {
         info!("{:?}", res);
