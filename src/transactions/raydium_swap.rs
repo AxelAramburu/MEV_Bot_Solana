@@ -1,13 +1,7 @@
 //Taken here: https://github.com/MeteoraAg/dlmm-sdk/blob/main/cli/src/instructions/swap.rs
 
-use std::ops::Deref;
-use std::rc::Rc;
-
 use anchor_client::solana_client::rpc_config::RpcSendTransactionConfig;
-use anchor_client::solana_sdk::compute_budget::ComputeBudgetInstruction;
-use anchor_client::Client;
-use anchor_client::{solana_sdk::pubkey::Pubkey, solana_sdk::signer::Signer, Program};
-use anchor_lang::solana_program::instruction::AccountMeta;
+use anchor_client::{solana_sdk::pubkey::Pubkey, solana_sdk::signer::Signer};
 use anchor_spl::associated_token::get_associated_token_address;
 
 use anchor_spl::token::spl_token;
@@ -17,14 +11,12 @@ use borsh::BorshDeserialize;
 use log::info;
 use raydium_amm::instruction::swap_base_in;
 use solana_client::rpc_client::RpcClient;
-use solana_sdk::account::ReadableAccount;
-use solana_sdk::commitment_config::CommitmentConfig;
 use solana_sdk::instruction::Instruction;
-use solana_sdk::signature::{read_keypair_file, Keypair};
+use solana_sdk::signature::read_keypair_file;
 use spl_associated_token_account::instruction::create_associated_token_account;
 
 use crate::common::constants::Env;
-use crate::common::utils::{from_Pubkey, from_str};
+use crate::common::utils::from_str;
 use crate::markets::raydium::AmmInfo;
 
 use super::utils::get_keys_for_market;
@@ -36,17 +28,20 @@ pub struct SwapParametersRaydium {
     pub output_token_mint: Pubkey,
     pub amount_in: u64,
     pub swap_for_y: bool,
+    pub min_amount_out: u64
 }
 // Function are imported from Raydium library, you can see here: 
 // https://github.com/raydium-io/raydium-library
-pub fn construct_raydium_instructions(params: SwapParametersRaydium, transaction_config: RpcSendTransactionConfig, min_amount_out: u64) -> Vec<Instruction> {
+pub fn construct_raydium_instructions(params: SwapParametersRaydium) -> Vec<Instruction> {
     let SwapParametersRaydium {
         pool,
         input_token_mint,
         output_token_mint,
         amount_in,
         swap_for_y,
+        min_amount_out
     } = params;
+    info!("RAYDIUM CRAFT SWAP INSTRUCTION !");
 
     let mut swap_instructions: Vec<Instruction> = Vec::new();
     let env = Env::new();
@@ -142,6 +137,7 @@ pub fn construct_raydium_instructions(params: SwapParametersRaydium, transaction
         min_amount_out,
     ).expect("Error in Raydium swap instruction construction");
 
+    println!("DATA: {:?}", swap_instruction.data);
     swap_instructions.push(swap_instruction);
 
     return (swap_instructions);

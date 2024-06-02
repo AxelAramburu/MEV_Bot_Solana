@@ -99,6 +99,17 @@ async fn main() -> Result<()> {
         hops: 1,
         tokens_path: "".to_string(),
         route_simulations: vec![
+            SwapRouteSimulation{
+                id_route: 53,
+                pool_address: "HvYSJ3CxLviabBAbrkXAKh7xk7DJZtn4gvLeEuFdGeXi".to_string(),
+                dex_label: MEV_Bot_Solana::markets::types::DexLabel::METEORA,
+                token_in: "So11111111111111111111111111111111111111112".to_string(),
+                token_out: "EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm".to_string(),
+                token_0to1: true,
+                amount_in: 1000000,
+                estimated_amount_out: "100".to_string(),
+                estimated_min_amount_out: "100".to_string()
+              },
             SwapRouteSimulation{ 
                 id_route: 0,
                 pool_address: "48XCxXxuVjEefX8K1qAMD2yELYUkXihYQegtSKXf4JXG".to_string(),
@@ -115,9 +126,9 @@ async fn main() -> Result<()> {
         token_in_symbol: "SOL".to_string(),
         token_out: "So11111111111111111111111111111111111111112".to_string(),
         token_out_symbol: "SOL".to_string(),
-        amount_in: 1000000000,
-        estimated_amount_out: "710927".to_string(),
-        estimated_min_amount_out: "703888".to_string(),
+        amount_in: 1000000,
+        estimated_amount_out: "100".to_string(),
+        estimated_min_amount_out: "100".to_string(),
         result: -46478200.0
     };
 

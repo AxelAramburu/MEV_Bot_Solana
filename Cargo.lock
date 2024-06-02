@@ -18,6 +18,7 @@ version = "0.1.0"
 dependencies = [
  "anchor-client",
  "anchor-lang",
+ "anchor-safe-math",
  "anchor-spl",
  "anyhow",
  "async-trait",
@@ -39,6 +40,7 @@ dependencies = [
  "hex",
  "indicatif",
  "itertools 0.11.0",
+ "lb_clmm",
  "log",
  "log4rs",
  "ndarray",
@@ -352,6 +354,15 @@ dependencies = [
  "anyhow",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "anchor-safe-math"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ee17a362b2d34c1dc13a4d1362d53c9a017584b357c756190293515819dc94b4"
+dependencies = [
+ "anchor-lang",
 ]
 
 [[package]]

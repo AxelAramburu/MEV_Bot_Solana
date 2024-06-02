@@ -167,7 +167,7 @@ pub async fn simulate_path(socket: Client, path: SwapPath, markets: Vec<Market>,
                         let swap_sim: SwapRouteSimulation = SwapRouteSimulation{
                             id_route: route.id.clone(),
                             pool_address: route.pool_address.clone(),
-                            dex_label: DexLabel::RAYDIUM,
+                            dex_label: DexLabel::METEORA,
                             token_0to1: route.token_0to1,
                             token_in: route.tokenIn.clone(),
                             token_out: route.tokenOut.clone(),

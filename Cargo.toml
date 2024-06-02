@@ -9,7 +9,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-# lb_clmm = { path = "./programs/lb_clmm" }
+lb_clmm = { path = "./programs/lb_clmm" }
 raydium_amm = { path = "./programs/raydium_amm" }
 url = "2.3.1"
 dotenv = "0.15.0"
@@ -67,6 +67,7 @@ anchor-spl = "0.30.0"
 serum_dex = "0.5.4"
 safe-transmute = "0.11.3"
 spl-associated-token-account = "3.0.2"
+anchor-safe-math = "0.5.0"
 
 [profile.release]
 codegen-units = 1
