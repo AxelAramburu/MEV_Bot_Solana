@@ -1,12 +1,12 @@
 use log::info;
 use solana_client::{rpc_client::RpcClient, rpc_config::{RpcSendTransactionConfig, RpcSimulateTransactionConfig}};
-use solana_sdk::{commitment_config::CommitmentConfig, instruction::{self, Instruction}, signature::{read_keypair_file, Keypair}, signer::Signer};
+use solana_sdk::{commitment_config::CommitmentConfig, compute_budget::ComputeBudgetInstruction, instruction::{self, Instruction}, signature::{read_keypair_file, Keypair}, signer::Signer};
 use solana_sdk::{pubkey::Pubkey, transaction::Transaction};
 
 use crate::{arbitrage::types::SwapPathResult, common::{constants::Env, utils::from_str}, markets::types::DexLabel};
 
 // use super::{meteoradlmm_swap::{SwapParametersMeteora}};
-use super::raydium_swap::{construct_raydium_instructions, SwapParametersRaydium};
+use super::{meteoradlmm_swap::{construct_meteora_instructions, SwapParametersMeteora}, raydium_swap::{construct_raydium_instructions, SwapParametersRaydium}};
 
 pub async fn create_transaction(transaction_infos: SwapPathResult) {
     info!("🔄 Create transaction.... ");
@@ -33,7 +33,7 @@ pub async fn create_transaction(transaction_infos: SwapPathResult) {
         max_retries: None,
         min_context_slot: None,
     };
-
+    
     let swap_instructions = construct_transaction(transaction_infos, transaction_config).await;
     
     let txn = Transaction::new_signed_with_payer(
@@ -65,25 +65,35 @@ pub async fn create_transaction(transaction_infos: SwapPathResult) {
 pub async fn construct_transaction(transaction_infos: SwapPathResult, transaction_config: RpcSendTransactionConfig) -> Vec<Instruction> {
     
     let mut swap_instructions: Vec<Instruction> = Vec::new();
-    for route_sim in transaction_infos.route_simulations.clone() {
+    let compute_budget_ix = ComputeBudgetInstruction::set_compute_unit_limit(1_400_000);
+    swap_instructions.push(compute_budget_ix);
+    
+    for (i, route_sim) in transaction_infos.route_simulations.clone().iter().enumerate() {
         match route_sim.dex_label {
             DexLabel::METEORA => {
-                // let swap_params: SwapParametersMeteora = SwapParametersMeteora{
-                //     lb_pair: from_str(transaction_infos.route_simulations[0].pool_address.as_str()).unwrap(),
-                //     amount_in: transaction_infos.route_simulations[0].amount_in,
-                //     swap_for_y: transaction_infos.route_simulations[0].token_0to1,
-                // };
-                // let (compute_budget_ix, accounts, remaining_accounts, ix) = construct_meteora_instructions(transaction_config, swap_params.clone(), transaction_infos.estimated_min_amount_out.parse().unwrap()).await;
+                let swap_params: SwapParametersMeteora = SwapParametersMeteora{
+                    lb_pair: from_str(transaction_infos.route_simulations[i].pool_address.as_str()).unwrap(),
+                    amount_in: transaction_infos.route_simulations[i].amount_in,
+                    swap_for_y: transaction_infos.route_simulations[i].token_0to1,
+                    input_token: from_str(transaction_infos.route_simulations[i].token_in.as_str()).unwrap(),
+                    output_token: from_str(transaction_infos.route_simulations[i].token_out.as_str()).unwrap(),
+                    minimum_amount_out: transaction_infos.route_simulations[i].estimated_amount_out.parse().unwrap()
+                };
+                let result = construct_meteora_instructions(swap_params.clone()).await;
+                for instruction in result {
+                    swap_instructions.push(instruction);
+                }
             }
             DexLabel::RAYDIUM => {
                 let swap_params: SwapParametersRaydium = SwapParametersRaydium{
-                    pool: from_str(transaction_infos.route_simulations[0].pool_address.as_str()).unwrap(),
+                    pool: from_str(transaction_infos.route_simulations[i].pool_address.as_str()).unwrap(),
                     input_token_mint: from_str(route_sim.token_in.as_str()).unwrap(),
                     output_token_mint: from_str(route_sim.token_out.as_str()).unwrap(),
-                    amount_in: transaction_infos.route_simulations[0].amount_in,
-                    swap_for_y: transaction_infos.route_simulations[0].token_0to1,
+                    amount_in: transaction_infos.route_simulations[i].amount_in,
+                    swap_for_y: transaction_infos.route_simulations[i].token_0to1,
+                    min_amount_out: transaction_infos.route_simulations[i].estimated_amount_out.parse().unwrap()
                 };
-                let result = construct_raydium_instructions(swap_params, transaction_config, transaction_infos.estimated_min_amount_out.parse().unwrap());
+                let result = construct_raydium_instructions(swap_params);
                 for instruction in result {
                     swap_instructions.push(instruction);
                 }
