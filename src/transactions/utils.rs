@@ -1,17 +1,54 @@
+use log::{error, info};
 use solana_client::rpc_client::RpcClient;
-use solana_sdk::pubkey::Pubkey;
+use solana_sdk::{pubkey::Pubkey, signature::Signature};
 use anyhow::{format_err, Result};
 use std::{
     borrow::Cow,
     convert::{identity, TryFrom},
     mem::size_of,
-    thread, time,
+    thread::{self, sleep}, time::{self, Duration, Instant},
 };
 use safe_transmute::{
     to_bytes::{transmute_one_to_bytes, transmute_to_bytes},
     transmute_many_pedantic, transmute_one_pedantic,
 };
 use serum_dex::state::{gen_vault_signer_key, AccountFlag, Market, MarketState, MarketStateV2};
+
+use crate::common::constants::Env;
+
+use super::create_transaction::ChainType;
+
+
+pub async fn check_tx_status(chain: ChainType ,signature: Signature) -> Result<bool> {
+    let env = Env::new();
+    let rpc_url = if chain.clone() == ChainType::Mainnet { env.rpc_url } else { env.devnet_rpc_url };
+    let rpc_client: RpcClient = RpcClient::new(rpc_url);
+
+    let start = Instant::now();
+    let mut counter = 0;
+    loop {
+        let confirmed = rpc_client.confirm_transaction(&signature)?;
+
+        let status = rpc_client.get_signature_status(&signature)?;
+        let sixty_secs = Duration::from_secs(60);
+        if confirmed {
+            info!("✅ Transaction Confirmed with Confirmation");
+            return Ok(true);
+        }
+        if status.is_some() {
+            info!("✅ Transaction Confirmed with Status");
+            return Ok(true);
+        }
+        if start.elapsed() >= sixty_secs {
+            error!("❌ Transaction not confirmed");
+            return Ok(false);
+        }
+        let ten_secs = Duration::from_secs(10);
+        info!("⏳ {} seconds...", 10 * counter);
+        sleep(ten_secs);
+        counter += 1;
+    }
+}
 
 #[cfg(target_endian = "little")]
 fn remove_dex_account_padding<'a>(data: &'a [u8]) -> Result<Cow<'a, [u64]>> {
