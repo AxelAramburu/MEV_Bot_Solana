@@ -2,13 +2,13 @@ use anyhow::Result;
 use futures::FutureExt;
 use log::info;
 use MEV_Bot_Solana::arbitrage::strategies::run_arbitrage_strategy;
-use MEV_Bot_Solana::transactions::create_transaction::create_transaction;
+use MEV_Bot_Solana::transactions::create_transaction::{create_swap_transaction, ChainType, TransactionType};
 use std::collections::HashMap;
 use tokio::task::JoinSet;
 use solana_client::rpc_client::RpcClient;
 use MEV_Bot_Solana::common::constants::Env;
 use MEV_Bot_Solana::markets::pools::load_all_pools;
-use MEV_Bot_Solana::common::utils::{get_tokens_infos, setup_logger};
+use MEV_Bot_Solana::common::utils::{from_str, get_tokens_infos, setup_logger};
 use MEV_Bot_Solana::arbitrage::types::{SwapPathResult, SwapRouteSimulation, TokenInArb, TokenInfos};
 
 use rust_socketio::{Payload, asynchronous::{Client, ClientBuilder},};
@@ -94,45 +94,56 @@ async fn main() -> Result<()> {
     
     // set.spawn(run_arbitrage_strategy(socket, dexs, tokens_to_arb, tokens_infos));
 
-    let spr = SwapPathResult{ 
-        path_id: 1,
-        hops: 1,
-        tokens_path: "".to_string(),
-        route_simulations: vec![
-            SwapRouteSimulation{
-                id_route: 53,
-                pool_address: "HvYSJ3CxLviabBAbrkXAKh7xk7DJZtn4gvLeEuFdGeXi".to_string(),
-                dex_label: MEV_Bot_Solana::markets::types::DexLabel::METEORA,
-                token_in: "So11111111111111111111111111111111111111112".to_string(),
-                token_out: "EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm".to_string(),
-                token_0to1: true,
-                amount_in: 1000000,
-                estimated_amount_out: "100".to_string(),
-                estimated_min_amount_out: "100".to_string()
-              },
-            SwapRouteSimulation{ 
-                id_route: 0,
-                pool_address: "48XCxXxuVjEefX8K1qAMD2yELYUkXihYQegtSKXf4JXG".to_string(),
-                dex_label: MEV_Bot_Solana::markets::types::DexLabel::RAYDIUM,
-                token_0to1: true,
-                token_in: "So11111111111111111111111111111111111111112".to_string(),
-                token_out: "9LAjk5F4rFetELE4CygcBbZ5hYc2QhRrbJjfm5Q26jWM".to_string(),
-                amount_in: 1000000, // 0.001 SOL
-                estimated_amount_out:"710927".to_string(),
-                estimated_min_amount_out: "703888".to_string()
-            }
-        ],
-        token_in: "So11111111111111111111111111111111111111112".to_string(),
-        token_in_symbol: "SOL".to_string(),
-        token_out: "So11111111111111111111111111111111111111112".to_string(),
-        token_out_symbol: "SOL".to_string(),
-        amount_in: 1000000,
-        estimated_amount_out: "100".to_string(),
-        estimated_min_amount_out: "100".to_string(),
-        result: -46478200.0
-    };
+    // let spr = SwapPathResult{ 
+    //     path_id: 1,
+    //     hops: 1,
+    //     tokens_path: "".to_string(),
+    //     route_simulations: vec![
+    //         SwapRouteSimulation{
+    //             id_route: 53,
+    //             pool_address: "HvYSJ3CxLviabBAbrkXAKh7xk7DJZtn4gvLeEuFdGeXi".to_string(),
+    //             dex_label: MEV_Bot_Solana::markets::types::DexLabel::METEORA,
+    //             token_in: "So11111111111111111111111111111111111111112".to_string(),
+    //             token_out: "EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm".to_string(),
+    //             token_0to1: true,
+    //             amount_in: 1000000,
+    //             estimated_amount_out: "100".to_string(),
+    //             estimated_min_amount_out: "100".to_string()
+    //           },
+    //         SwapRouteSimulation{ 
+    //             id_route: 0,
+    //             pool_address: "48XCxXxuVjEefX8K1qAMD2yELYUkXihYQegtSKXf4JXG".to_string(),
+    //             dex_label: MEV_Bot_Solana::markets::types::DexLabel::RAYDIUM,
+    //             token_0to1: true,
+    //             token_in: "So11111111111111111111111111111111111111112".to_string(),
+    //             token_out: "9LAjk5F4rFetELE4CygcBbZ5hYc2QhRrbJjfm5Q26jWM".to_string(),
+    //             amount_in: 1000000, // 0.001 SOL
+    //             estimated_amount_out:"710927".to_string(),
+    //             estimated_min_amount_out: "703888".to_string()
+    //         },
+    //         SwapRouteSimulation{ 
+    //             id_route: 0,
+    //             pool_address: "4E6q7eJE6vBNdquqzYYi5gvzd5MNpwiQKhjbRTRQGuQd".to_string(),
+    //             dex_label: MEV_Bot_Solana::markets::types::DexLabel::ORCA_WHIRLPOOLS,
+    //             token_0to1: true,
+    //             token_in: "EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm".to_string(),
+    //             token_out: "So11111111111111111111111111111111111111112".to_string(),
+    //             amount_in: 1000000, // 0.001 SOL
+    //             estimated_amount_out:"100".to_string(),
+    //             estimated_min_amount_out: "100".to_string()
+    //         }
+    //     ],
+    //     token_in: "So11111111111111111111111111111111111111112".to_string(),
+    //     token_in_symbol: "SOL".to_string(),
+    //     token_out: "So11111111111111111111111111111111111111112".to_string(),
+    //     token_out_symbol: "SOL".to_string(),
+    //     amount_in: 1000000,
+    //     estimated_amount_out: "10000000".to_string(),
+    //     estimated_min_amount_out: "10000000".to_string(),
+    //     result: -46478200.0
+    // };
 
-    create_transaction(spr).await;
+    // let _ = create_transaction(ChainType::Mainnet, TransactionType::CreateSwap, spr, from_str("6nGymM5X1djYERKZtoZ3Yz3thChMVF6jVRDzhhcmxuee").unwrap()).await;
     
     while let Some(res) = set.join_next().await {
         info!("{:?}", res);

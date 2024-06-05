@@ -18,14 +18,6 @@ use std::rc::Rc;
 use std::result::Result::Ok;
 use std::mem::size_of;
 
-// use lb_clmm::accounts;
-// use lb_clmm::state::bin::BinArray;
-// use lb_clmm::instruction;
-// use lb_clmm::state::lb_pair::LbPair;
-// use lb_clmm::utils::pda::{derive_bin_array_bitmap_extension, derive_bin_array_pda};
-// use lb_clmm::state::bin::BinArray;
-// use lb_clmm::utils::pda::*;
-
 use log::info;
 use solana_sdk::instruction::Instruction;
 use solana_sdk::signature::read_keypair_file;
@@ -34,6 +26,8 @@ use spl_associated_token_account::instruction::create_associated_token_account;
 use crate::common::constants::Env;
 use crate::common::utils::from_str;
 use crate::markets::meteora::AccountData;
+use crate::markets::types::DexLabel;
+use crate::transactions::create_transaction::{InstructionDetails, MarketInfos};
 
 
 #[derive(Debug, Clone)]
@@ -46,7 +40,7 @@ pub struct SwapParametersMeteora {
     pub minimum_amount_out: u64,
 }
 // 
-pub async fn construct_meteora_instructions(params: SwapParametersMeteora) -> Vec<Instruction> {
+pub async fn construct_meteora_instructions(params: SwapParametersMeteora) -> Vec<InstructionDetails> {
     let SwapParametersMeteora {
         amount_in,
         lb_pair,
@@ -57,7 +51,7 @@ pub async fn construct_meteora_instructions(params: SwapParametersMeteora) -> Ve
     } = params;
     info!("METEORA CRAFT SWAP INSTRUCTION !");
 
-    let mut swap_instructions: Vec<Instruction> = Vec::new();
+    let mut swap_instructions: Vec<InstructionDetails> = Vec::new();
     let env = Env::new();
     let payer = read_keypair_file(env.payer_keypair_path).expect("Wallet keypair file not found");
     
@@ -89,7 +83,7 @@ pub async fn construct_meteora_instructions(params: SwapParametersMeteora) -> Ve
                 &input_token,
                 &spl_token::id()
             );
-            swap_instructions.push(create_pda_instruction);
+            swap_instructions.push(InstructionDetails{ instruction: create_pda_instruction, details: "Create PDA".to_string(), market: None});
         }
     }
 
@@ -110,7 +104,7 @@ pub async fn construct_meteora_instructions(params: SwapParametersMeteora) -> Ve
                 &output_token,
                 &spl_token::id()
             );
-            swap_instructions.push(create_pda_instruction);
+            swap_instructions.push(InstructionDetails{ instruction: create_pda_instruction, details: "Create PDA".to_string(), market: None});
         }
     }
 
@@ -165,8 +159,11 @@ pub async fn construct_meteora_instructions(params: SwapParametersMeteora) -> Ve
         data,
     };
 
-    swap_instructions.push(instruction);
-
+    swap_instructions.push(InstructionDetails{
+        instruction: instruction, 
+        details: "Meteora Swap Instruction".to_string(),
+        market: Some(MarketInfos{dex_label: DexLabel::METEORA, address: lb_pair })
+    });
     return swap_instructions;
 
 }
