@@ -19,8 +19,8 @@ use std::io::{BufWriter, Write};
 use crate::{arbitrage::types::SwapPathResult, common::{constants::Env, utils::from_str}, markets::types::DexLabel, transactions::utils::check_tx_status};
 use super::{meteoradlmm_swap::{construct_meteora_instructions, SwapParametersMeteora}, orca_whirpools_swap::{construct_orca_whirpools_instructions, SwapParametersOrcaWhirpools}, raydium_swap::{construct_raydium_instructions, SwapParametersRaydium}};
 
-pub async fn create_swap_transaction(chain: ChainType, transaction_type: TransactionType, transaction_infos: SwapPathResult, lut_address: Pubkey) -> Result<()> {
-    info!("🔄 Create transaction.... ");
+pub async fn create_swap_transaction(simulate_or_send: SendOrSimulate, chain: ChainType, transaction_infos: SwapPathResult, lut_addresses: Vec<Pubkey>) -> Result<()> {
+    info!("🔄 Create swap transaction.... ");
     
     let env = Env::new();
     let rpc_url = if chain.clone() == ChainType::Mainnet { env.rpc_url } else { env.devnet_rpc_url };
@@ -29,146 +29,124 @@ pub async fn create_swap_transaction(chain: ChainType, transaction_type: Transac
     let payer: Keypair = read_keypair_file(env.payer_keypair_path).expect("Wallet keypair file not found");
     info!("💳 Wallet {:#?}", payer.pubkey());
 
-    match transaction_type {
-        TransactionType::CreateLUT => {
-            info!("🆔 Create/Send LUT transaction....");
-            // Create LUT instruction
-            let (create_lut_instruction, address_lut) = create_lut(chain.clone()).await;
-
-            let txn_lut = Transaction::new_signed_with_payer(
-                &vec![create_lut_instruction.clone()],
-                Some(&payer.pubkey()),
-                &vec![&payer],
-                rpc_client.get_latest_blockhash().expect("Error in get latest blockhash"),
-            );
-        
-            // let result_lut_creation = rpc_client.simulate_transaction(&txn_lut).unwrap().value;
-            // info!("🧾 Simulate Tx LUT Creation & Extends Logs: {:#?}", result_lut_creation.logs);
-            info!("🧾 Address LUT {:#?}", address_lut);
-
-            let commitment_config = CommitmentConfig::confirmed();
-
-            let transaction_config: RpcSendTransactionConfig = RpcSendTransactionConfig {
-                skip_preflight: false,
-                .. RpcSendTransactionConfig::default()
-            };
-
-            let signature = rpc_client.send_transaction_with_config(
-                &txn_lut,
-                transaction_config
-            ).unwrap();
-
-            if chain == ChainType::Devnet {
-                info!("https://explorer.solana.com/tx/{}?cluster=devnet", signature);
-            } else {
-                info!("https://explorer.solana.com/tx/{}", signature);
-            }
-
-            let start = Instant::now();
-            let mut counter = 0;
-            loop {
-                let confirmed = rpc_client.confirm_transaction(&signature)?;
-
-                let status = rpc_client.get_signature_status(&signature)?;
-                let sixty_secs = Duration::from_secs(60);
-                if confirmed {
-                    info!("✅ Transaction Confirmed with Confirmation");
-                    break;
+    info!("🆔 Create/Send Swap instruction....");
+    // Construct Swap instructions
+    let mut swap_instructions: Vec<InstructionDetails> = construct_transaction(transaction_infos).await;
+    
+    if swap_instructions.len() == 0 {
+        error!("Error in create_transaction(), zero instructions");
+        return Ok(());
+    }
+    
+    // Create the extend LUT instructions
+    let mut lut_addresses: Vec<Pubkey> = Vec::new();
+    for (i, si) in swap_instructions.clone().iter().enumerate() {
+        let (have_lut_address, lut_address) = get_lut_address_for_market(si.market.as_ref().unwrap().address, false).unwrap();
+        match have_lut_address {
+            true => {
+                lut_addresses.push(lut_address.unwrap());
+                // Get the accounts we need for this swap with the lookup
+                match si.market.as_ref().unwrap().dex_label {
+                    DexLabel::METEORA => {
+                        //Here we keep the bin arrays
+                        let vec_accounts = &si.instruction.accounts;
+                        let len = vec_accounts.len();
+                        let new_vec = vec_accounts[len - 3..len].to_vec();
+                        swap_instructions[i].instruction.accounts = new_vec
+                    }
+                    DexLabel::RAYDIUM => {
+                        //Here nothing to keep
+                    }
+                    DexLabel::ORCA_WHIRLPOOLS => {
+                        //Here we keep the tick arrays
+                        let vec_accounts = &si.instruction.accounts;
+                        let len = vec_accounts.len();
+                        let new_vec = vec_accounts[len - 4..len - 1].to_vec();
+                        swap_instructions[i].instruction.accounts = new_vec
+                    }
+                    DexLabel::ORCA => {
+                        //Dex Not implemented
+                    }
+                    DexLabel::RAYDIUM_CLMM => {
+                        //Dex Not implemented
+                    }
                 }
-                if status.is_some() {
-                    info!("✅ Transaction Confirmed with Status");
-                    break;
-                }
-                if start.elapsed() >= sixty_secs {
-                    error!("❌ Transaction not confirmed");
-                    break;
-                }
-                let ten_secs = Duration::from_secs(10);
-                info!("⏳ {} seconds...", 10 * counter);
-                sleep(ten_secs);
-                counter += 1;
             }
-        }
-        TransactionType::CreateSwap => {
-            info!("🆔 Create/Send Swap instruction....");
-            // Construct Swap instructions
-            let swap_instructions: Vec<InstructionDetails> = construct_transaction(transaction_infos).await;
-            
-            if swap_instructions.len() == 0 {
-                error!("Error in create_transaction()");
-                return Ok(());
+            false => {
+                error!("❌ No LUT address already crafted for the market {:?}, the tx can revert...", si.market.as_ref().unwrap().address);
             }
-            
-            // Create the extend LUT instructions
-            let mut extend_instructions_vec: Vec<Instruction> = Vec::new();
-            
-            let mut instructions: Vec<Instruction> = swap_instructions.clone().into_iter().map(|instruc_details| instruc_details.instruction).collect();
-            let si_details: Vec<String> = swap_instructions.clone().into_iter().map(|instruc_details| instruc_details.details).collect();
-            info!("📋 Swap instructions: {:#?}", si_details);
-
-            // let txn = Transaction::new_signed_with_payer(
-            //     &instructions,
-            //     Some(&payer.pubkey()),
-            //     &vec![&payer],
-            //     rpc_client.get_latest_blockhash().expect("Error in get latest blockhash"),
-            // );
-
-            let raw_lut_account = rpc_client.get_account(&lut_address)?;
-            let address_lookup_table = AddressLookupTable::deserialize(&raw_lut_account.data)?;
-            let address_lookup_table_account = AddressLookupTableAccount {
-                key: lut_address,
-                addresses: address_lookup_table.addresses.to_vec(),
-            };
-
-            println!("Address in lookup_table: {:#?}", address_lookup_table_account);
-            println!("Address in lookup_table: {}", address_lookup_table_account.addresses.len());
-
-            let all_instructions: Vec<Instruction> = vec![extend_instructions_vec, instructions.clone()].concat();
-
-            println!("instructions: {:?}", instructions);
-
-            let tx = VersionedTransaction::try_new(
-                VersionedMessage::V0(v0::Message::try_compile(
-                    &payer.pubkey(),
-                    &instructions,
-                    &[address_lookup_table_account],
-                    rpc_client.get_latest_blockhash()?,
-                )?),
-                &[&payer],
-            )?;
-            // println!("TX: {:?}", tx);
-
-            // Simulate transaction
-            let config = RpcSimulateTransactionConfig {
-                sig_verify: false,
-                .. RpcSimulateTransactionConfig::default()
-            };
-            
-            let result = rpc_client.simulate_transaction_with_config(&tx, config).unwrap().value;
-            info!("🧾 Simulate Tx Swap Logs: {:#?}", result.logs);
-
-            // let transaction_config: RpcSendTransactionConfig = RpcSendTransactionConfig {
-            //     skip_preflight: false,
-            //     .. RpcSendTransactionConfig::default()
-            // };
-
-            // let signature = rpc_client.send_transaction_with_config(
-            //     &tx,
-            //     transaction_config
-            // ).unwrap();
-
-            // if chain == ChainType::Devnet {
-            //     info!("https://explorer.solana.com/tx/{}?cluster=devnet", signature);
-            // } else {
-            //     info!("https://explorer.solana.com/tx/{}", signature);
-            // }
-
-            // check_tx_status(chain, signature);
         }
     }
+    
+    let si_details: Vec<String> = swap_instructions.clone().into_iter().map(|instruc_details| instruc_details.details).collect();
+    info!("📋 Swap instructions: {:#?}", si_details);
 
-    // println!("lut_address: {}", lut_address);
-    // println!("Txn: {:?}", txn);
+
+    let mut vec_address_LUT: Vec<AddressLookupTableAccount> = Vec::new();
+
+    for lut_address in lut_addresses {
+        let raw_lut_account = rpc_client.get_account(&lut_address)?;
+        let address_lookup_table = AddressLookupTable::deserialize(&raw_lut_account.data)?;
+        let address_lookup_table_account = AddressLookupTableAccount {
+            key: lut_address,
+            addresses: address_lookup_table.addresses.to_vec(),
+        };
+        println!("Address in lookup_table: {:#?}", address_lookup_table_account);
+        println!("Address in lookup_table: {}", address_lookup_table_account.addresses.len());
+        vec_address_LUT.push(address_lookup_table_account);
+    }
+
+    // println!("instructions: {:?}", instructions);
+    let instructions: Vec<Instruction> = swap_instructions.clone().into_iter().map(|instruc_details| instruc_details.instruction).collect();
+
+    let tx = VersionedTransaction::try_new(
+        VersionedMessage::V0(v0::Message::try_compile(
+            &payer.pubkey(),
+            &instructions,
+            &vec_address_LUT,
+            rpc_client.get_latest_blockhash()?,
+        )?),
+        &[&payer],
+    )?;
+
+
+    //Simulate
+    if simulate_or_send == SendOrSimulate::Simulate {
+        // Simulate transaction
+        let config = RpcSimulateTransactionConfig {
+            sig_verify: false,
+            .. RpcSimulateTransactionConfig::default()
+        };
+        
+        let result = rpc_client.simulate_transaction_with_config(&tx, config).unwrap().value;
+        info!("🧾 Simulate Tx Swap Logs: {:#?}", result.logs);
+    }
+
+    //Send transaction
+    if simulate_or_send == SendOrSimulate::Send {
+        let transaction_config: RpcSendTransactionConfig = RpcSendTransactionConfig {
+            skip_preflight: false,
+            .. RpcSendTransactionConfig::default()
+        };
+    
+        let signature = rpc_client.send_transaction_with_config(
+            &tx,
+            transaction_config
+        ).unwrap();
+    
+        if chain == ChainType::Devnet {
+            info!("https://explorer.solana.com/tx/{}?cluster=devnet", signature);
+        } else {
+            info!("https://explorer.solana.com/tx/{}", signature);
+        }
+    
+        let tx_executed = check_tx_status(chain, signature).await?;
+        if tx_executed {
+            info!("✅ Swap transaction is well executed");
+        } else {
+            info!("❌ Swap transaction is not executed");
+        }
+    }
 
     Ok(())
 }
@@ -208,20 +186,24 @@ pub async fn create_ata_extendlut_transaction(chain: ChainType, transaction_info
         }
     }
 
-
     // Create the extend LUT instructions
+    let mut swap_instructions: Vec<InstructionDetails> = construct_transaction(transaction_infos).await;
 
     //Check if lookup table is already exist
-    info!("👷‍♂️👷‍♂️👷‍♂️ Implement Logic here");
-
-    // Construct Swap instructions
-    let swap_instructions: Vec<InstructionDetails> = construct_transaction(transaction_infos).await;
-
-        //👷‍♂️👷‍♂️👷‍♂️ If market LUT already exist, delete instruction
-        //👷‍♂️👷‍♂️👷‍♂️ And if it give us an empy instruction, return address of LUT with no need to create new
-
-    // info!("📋 Swap instructions: {:#?}", si_details);
-
+    for (i, instruction) in swap_instructions.clone().iter().enumerate() {
+        let (lut_exist, lut_address) = get_lut_address_for_market(instruction.market.as_ref().unwrap().address, false).unwrap_or((false, None));
+        if lut_exist == false {
+            info!("🟢 Lookup already exist for {} !", instruction.market.as_ref().unwrap().address);
+            swap_instructions.remove(i);
+            continue;
+        } else {  
+            info!("👷‍♂️ Extend lookup creation...");
+        }
+    }
+    if swap_instructions.len() == 0 {
+        info!("➡️ No ATA/Extend lookup transaction sended");
+        return Ok(())   
+    }
     let mut vec_details_extend_instructions: Vec<InstructionDetails> = Vec::new();
 
     for (i, instr) in swap_instructions.clone().iter().enumerate() {
@@ -275,7 +257,7 @@ pub async fn create_ata_extendlut_transaction(chain: ChainType, transaction_info
 
     if tx_confirmed {
         for details_instruction in vec_details_extend_instructions {
-            write_lut_for_market(details_instruction.market.unwrap().address, lut_address, false);
+            let _ = write_lut_for_market(details_instruction.market.unwrap().address, lut_address, false);
         }
     }
     
@@ -357,8 +339,8 @@ pub async fn construct_transaction(transaction_infos: SwapPathResult) -> Vec<Ins
     return swap_instructions;
 }
 
-pub async fn create_lut(chain: ChainType) -> (Instruction, Pubkey) {
-
+pub async fn create_lut(chain: ChainType) -> Result<()> {
+    info!("🆔 Create/Send LUT transaction....");
     let env = Env::new();
     let rpc_url = if chain == ChainType::Mainnet { env.rpc_url } else { env.devnet_rpc_url };
     let rpc_client: RpcClient = RpcClient::new(rpc_url);
@@ -372,10 +354,41 @@ pub async fn create_lut(chain: ChainType) -> (Instruction, Pubkey) {
         slot - 200
     );
 
-    return (create_lut_instruction, lut_address);
+    let txn_lut = Transaction::new_signed_with_payer(
+        &vec![create_lut_instruction.clone()],
+        Some(&payer.pubkey()),
+        &vec![&payer],
+        rpc_client.get_latest_blockhash().expect("Error in get latest blockhash"),
+    );
+    let transaction_config: RpcSendTransactionConfig = RpcSendTransactionConfig {
+        skip_preflight: false,
+        .. RpcSendTransactionConfig::default()
+    };
+
+    let signature = rpc_client.send_transaction_with_config(
+        &txn_lut,
+        transaction_config
+    ).unwrap();
+
+    if chain == ChainType::Devnet {
+        info!("https://explorer.solana.com/tx/{}?cluster=devnet", signature);
+    } else {
+        info!("https://explorer.solana.com/tx/{}", signature);
+    }
+
+    let tx_confirmed = check_tx_status(chain, signature).await?;
+    if tx_confirmed {
+        info!("✅ Address LUT is well created");
+        info!("🧾 Address LUT {:#?}", lut_address);
+    } else {
+        info!("❌ Address LUT is not created");
+        info!("🧾 Address LUT {:#?}", lut_address);
+    }
+
+    Ok(())
 }
 
-pub async fn is_available_lut(chain: ChainType, lut_address: Pubkey) -> Result<()> {
+pub async fn is_available_lut(chain: ChainType, lut_address: Pubkey) -> Result<bool> {
     info!("🚚 Check if LUT address is available to craft a transaction...");
     let env = Env::new();
     let rpc_url = if chain == ChainType::Mainnet { env.rpc_url } else { env.devnet_rpc_url };
@@ -386,8 +399,31 @@ pub async fn is_available_lut(chain: ChainType, lut_address: Pubkey) -> Result<(
     let address_lookup_table = AddressLookupTable::deserialize(&raw_lut_account.data)?;
     
     let lut_length = address_lookup_table.addresses.len();
+    if lut_length < 210 {
+        return Ok(true)
+    } else {
+        return Ok(false)
+    }
+}
 
-    Ok(())
+pub fn get_lut_address_for_market(market: Pubkey, is_test: bool) -> Result<(bool, Option<Pubkey>)> {
+    let mut path = "";
+    if is_test {
+        path = "src/transactions/cache/lut_addresses_test.json";
+    } else {
+        path = "src/transactions/cache/lut_addresses.json";
+    }
+    let file_read = OpenOptions::new().read(true).open(path)?;
+    let mut lut_file: VecLUTFile = serde_json::from_reader(&file_read).unwrap();
+    let lut_address = lut_file.value.iter().find(|iteration| &from_str(iteration.market.as_str()).unwrap() == &market);
+    match lut_address  {
+        Some(value) => {
+            return Ok((true, Some(from_str(value.lut_address.as_str()).unwrap())))
+        }
+        None => {
+            return Ok((false, None))
+        }
+    }
 }
 
 pub fn write_lut_for_market(market:Pubkey, lut_address: Pubkey, is_test: bool) -> Result<()> {
@@ -426,7 +462,6 @@ pub fn write_lut_for_market(market:Pubkey, lut_address: Pubkey, is_test: bool) -
         println!("Data written to 'lut_addresses.json' successfully.");
     }
 
-
     Ok(())
 }
 
@@ -456,6 +491,11 @@ pub struct LUTFile {
 pub enum TransactionType {
     CreateLUT,
     CreateSwap,
+}
+#[derive(PartialEq)]
+pub enum SendOrSimulate {
+    Simulate,
+    Send,
 }
 
 #[derive(PartialEq, Clone)]
