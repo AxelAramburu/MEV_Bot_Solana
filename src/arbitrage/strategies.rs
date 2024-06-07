@@ -6,7 +6,7 @@ use solana_sdk::pubkey::Pubkey;
 
 use crate::{arbitrage::{
     calc_arb::{calculate_arb, get_markets_arb}, simulate::simulate_path, streams::get_fresh_accounts_states, types::{SwapPathResult, SwapRouteSimulation, VecSwapPathResult}
-}, common::utils::from_str, transactions::create_transaction::{self, create_swap_transaction}};
+}, common::utils::from_str, transactions::create_transaction::{self, create_and_send_swap_transaction}};
 use crate::markets::types::{Dex,Market};
 use super::{simulate::simulate_path_precision, types::{SwapPath, TokenInArb, TokenInfos}};
 use log::{debug, error, info};
@@ -202,7 +202,11 @@ pub async fn precision_strategy(socket: Client, path: SwapPath, markets: Vec<Mar
         }
     }
     if result_amt > 0.1 && sp_to_tx.is_some() {
-        create_swap_transaction(create_transaction::ChainType::Devnet, create_transaction::TransactionType::CreateLUT, sp_to_tx.unwrap(), from_str("pppppppppppppppppppppppppppppppppppppppppppp").unwrap());
+        let _ = create_and_send_swap_transaction(
+            create_transaction::SendOrSimulate::Simulate, 
+            create_transaction::ChainType::Mainnet, 
+            sp_to_tx.unwrap()
+        ).await;
     }
     
 

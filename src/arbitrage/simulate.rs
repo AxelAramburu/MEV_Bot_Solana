@@ -12,8 +12,8 @@ pub async fn simulate_path(socket: Client, path: SwapPath, markets: Vec<Market>,
     println!("🚕🚕🚕🚕  NEW PATH  🚕🚕🚕🚕");
     println!("Nb. Hops : {}", path.hops);
     let decimals = 9;
-    let mut amount_in = 1 * 10_u64.pow(decimals);
-
+    // let mut amount_in = 1 * 10_u64.pow(decimals);
+    let mut amount_in = 300000000;
     let amount_begin= amount_in;
 
     let mut swap_simulation_result: Vec<SwapRouteSimulation> = Vec::new();

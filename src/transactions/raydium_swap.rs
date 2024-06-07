@@ -8,7 +8,7 @@ use anchor_spl::token::spl_token;
 use borsh::BorshDeserialize;
 // use anyhow::*;
 
-use log::info;
+use log::{info, error};
 use raydium_amm::instruction::swap_base_in;
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::instruction::Instruction;
@@ -43,7 +43,7 @@ pub fn construct_raydium_instructions(params: SwapParametersRaydium) -> Vec<Inst
         swap_for_y,
         min_amount_out
     } = params;
-    info!("RAYDIUM CRAFT SWAP INSTRUCTION !");
+    // info!("RAYDIUM CRAFT SWAP INSTRUCTION !");
 
     let mut swap_instructions: Vec<InstructionDetails> = Vec::new();
     let env = Env::new();
@@ -79,18 +79,9 @@ pub fn construct_raydium_instructions(params: SwapParametersRaydium) -> Vec<Inst
         &input_token_mint,
     );
     match rpc_client.get_account(&pda_user_source) {
-        Ok(account) => {
-            info!("PDA exist !");
-        }
+        Ok(account) => {}
         Err(error) => {
-            info!("PDA creation...");
-            let create_pda_instruction = create_associated_token_account(
-                &payer.pubkey(),
-                &payer.pubkey(),
-                &input_token_mint,
-                &spl_token::id()
-            );
-            swap_instructions.push(InstructionDetails{ instruction: create_pda_instruction, details: "Create PDA".to_string(), market: None});
+            // error!("❌ PDA not exist for {}", input_token_mint);
         }
     }
 
@@ -100,18 +91,9 @@ pub fn construct_raydium_instructions(params: SwapParametersRaydium) -> Vec<Inst
     );
 
     match rpc_client.get_account(&pda_user_destination) {
-        Ok(account) => {
-            info!("PDA exist !");
-        }
+        Ok(account) => {}
         Err(error) => {
-            info!("PDA creation...");
-            let create_pda_instruction = create_associated_token_account(
-                &payer.pubkey(),
-                &payer.pubkey(),
-                &output_token_mint,
-                &spl_token::id()
-            );
-            swap_instructions.push(InstructionDetails{ instruction: create_pda_instruction, details: "Create PDA".to_string(), market: None});
+            // error!("❌ PDA not exist for {}", output_token_mint);
         }
     }
 

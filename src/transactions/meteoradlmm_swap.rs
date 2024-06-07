@@ -18,7 +18,7 @@ use std::rc::Rc;
 use std::result::Result::Ok;
 use std::mem::size_of;
 
-use log::info;
+use log::{info, error};
 use solana_sdk::instruction::Instruction;
 use solana_sdk::signature::read_keypair_file;
 use spl_associated_token_account::instruction::create_associated_token_account;
@@ -49,7 +49,7 @@ pub async fn construct_meteora_instructions(params: SwapParametersMeteora) -> Ve
         output_token,
         minimum_amount_out,
     } = params;
-    info!("METEORA CRAFT SWAP INSTRUCTION !");
+    // info!("METEORA CRAFT SWAP INSTRUCTION !");
 
     let mut swap_instructions: Vec<InstructionDetails> = Vec::new();
     let env = Env::new();
@@ -72,18 +72,9 @@ pub async fn construct_meteora_instructions(params: SwapParametersMeteora) -> Ve
         &input_token,
     );
     match rpc_client.get_account(&pda_user_source) {
-        Ok(account) => {
-            info!("PDA exist !");
-        }
+        Ok(account) => {}
         Err(error) => {
-            info!("PDA creation...");
-            let create_pda_instruction = create_associated_token_account(
-                &payer.pubkey(),
-                &payer.pubkey(),
-                &input_token,
-                &spl_token::id()
-            );
-            swap_instructions.push(InstructionDetails{ instruction: create_pda_instruction, details: "Create PDA".to_string(), market: None});
+            // error!("❌ PDA not exist for {}", input_token);
         }
     }
 
@@ -93,18 +84,9 @@ pub async fn construct_meteora_instructions(params: SwapParametersMeteora) -> Ve
     );
 
     match rpc_client.get_account(&pda_user_destination) {
-        Ok(account) => {
-            info!("PDA exist !");
-        }
+        Ok(account) => {}
         Err(error) => {
-            info!("PDA creation...");
-            let create_pda_instruction = create_associated_token_account(
-                &payer.pubkey(),
-                &payer.pubkey(),
-                &output_token,
-                &spl_token::id()
-            );
-            swap_instructions.push(InstructionDetails{ instruction: create_pda_instruction, details: "Create PDA".to_string(), market: None});
+            // error!("❌ PDA not exist for {}", output_token);
         }
     }
 

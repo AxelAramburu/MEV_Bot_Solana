@@ -52,7 +52,7 @@ pub async fn construct_orca_whirpools_instructions(params: SwapParametersOrcaWhi
         output_token,
         minimum_amount_out,
     } = params;
-    info!("ORCA WHIRPOOLS CRAFT SWAP INSTRUCTION !");
+    // info!("ORCA WHIRPOOLS CRAFT SWAP INSTRUCTION !");
     // println!("Params: {:?}", params);
 
     let mut swap_instructions: Vec<InstructionDetails> = Vec::new();
@@ -87,18 +87,9 @@ pub async fn construct_orca_whirpools_instructions(params: SwapParametersOrcaWhi
         &input_token,
     );
     match rpc_client.get_account(&pda_user_source) {
-        Ok(account) => {
-            info!("PDA exist !");
-        }
+        Ok(account) => {}
         Err(error) => {
-            info!("PDA creation...");
-            let create_pda_instruction = create_associated_token_account(
-                &payer.pubkey(),
-                &payer.pubkey(),
-                &input_token,
-                &spl_token::id()
-            );
-            swap_instructions.push(InstructionDetails{ instruction: create_pda_instruction, details: "Create PDA".to_string(), market: None});
+            // error!("❌ PDA not exist for {}", input_token);
         }
     }
 
@@ -108,18 +99,9 @@ pub async fn construct_orca_whirpools_instructions(params: SwapParametersOrcaWhi
     );
 
     match rpc_client.get_account(&pda_user_destination) {
-        Ok(account) => {
-            info!("PDA exist !");
-        }
+        Ok(account) => {}
         Err(error) => {
-            info!("PDA creation...");
-            let create_pda_instruction = create_associated_token_account(
-                &payer.pubkey(),
-                &payer.pubkey(),
-                &output_token,
-                &spl_token::id()
-            );
-            swap_instructions.push(InstructionDetails{ instruction: create_pda_instruction, details: "Create PDA".to_string(), market: None});
+            // error!("❌ PDA not exist for {}", output_token);
         }
     }
 
