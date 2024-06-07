@@ -1,6 +1,6 @@
 use log::{error, info};
 use solana_client::rpc_client::RpcClient;
-use solana_sdk::{pubkey::Pubkey, signature::Signature};
+use solana_sdk::{commitment_config::CommitmentConfig, pubkey::Pubkey, signature::Signature};
 use anyhow::{format_err, Result};
 use std::{
     borrow::Cow,
@@ -19,7 +19,7 @@ use crate::common::constants::Env;
 use super::create_transaction::ChainType;
 
 
-pub async fn check_tx_status(chain: ChainType ,signature: Signature) -> Result<bool> {
+pub async fn check_tx_status(commitment_config: CommitmentConfig, chain: ChainType ,signature: Signature) -> Result<bool> {
     let env = Env::new();
     let rpc_url = if chain.clone() == ChainType::Mainnet { env.rpc_url } else { env.devnet_rpc_url };
     let rpc_client: RpcClient = RpcClient::new(rpc_url);
@@ -28,18 +28,22 @@ pub async fn check_tx_status(chain: ChainType ,signature: Signature) -> Result<b
     let mut counter = 0;
     loop {
         let confirmed = rpc_client.confirm_transaction(&signature)?;
+        info!("Is confirmed? {:?}", confirmed);
 
-        let status = rpc_client.get_signature_status(&signature)?;
-        let sixty_secs = Duration::from_secs(60);
+        let status = rpc_client.get_signature_status_with_commitment_and_history(&signature, commitment_config, true)?;
+        println!("Status: {:?}", status);
+
+        let seventy_secs = Duration::from_secs(11);
         if confirmed {
             info!("✅ Transaction Confirmed with Confirmation");
+            info!("Status {:?}", status.clone().unwrap());
             return Ok(true);
         }
         if status.is_some() {
             info!("✅ Transaction Confirmed with Status");
             return Ok(true);
         }
-        if start.elapsed() >= sixty_secs {
+        if start.elapsed() >= seventy_secs {
             error!("❌ Transaction not confirmed");
             return Ok(false);
         }
@@ -91,13 +95,13 @@ pub fn get_keys_for_market<'a>(
     let market_state: MarketState = {
         let account_flags = Market::account_flags(&account_data)?;
         if account_flags.intersects(AccountFlag::Permissioned) {
-            println!("MarketStateV2");
+            // println!("MarketStateV2");
             let state = transmute_one_pedantic::<MarketStateV2>(transmute_to_bytes(&words))
                 .map_err(|e| e.without_src())?;
             state.check_flags(true)?;
             state.inner
         } else {
-            println!("MarketStateV");
+            // println!("MarketStateV");
             let state = transmute_one_pedantic::<MarketState>(transmute_to_bytes(&words))
                 .map_err(|e| e.without_src())?;
             state.check_flags(true)?;
@@ -156,4 +160,10 @@ pub struct MarketPubkeys {
     pub pc_mint: Box<Pubkey>,
     pub coin_lot_size: u64,
     pub pc_lot_size: u64,
+}
+
+pub fn average(numbers: Vec<u64>) -> u64 {
+    let sum: u64 = numbers.iter().sum();
+    let count = numbers.len() as u64;
+    sum / count
 }
