@@ -24,10 +24,10 @@ pub async fn create_and_send_swap_transaction(simulate_or_send: SendOrSimulate, 
     info!("🔄 Create swap transaction.... ");
     
     let env = Env::new();
-    let rpc_url = if chain.clone() == ChainType::Mainnet { env.rpc_url } else { env.devnet_rpc_url };
+    let rpc_url = if chain.clone() == ChainType::Mainnet { env.rpc_url.clone() } else { env.devnet_rpc_url };
     let rpc_client: RpcClient = RpcClient::new(rpc_url);
 
-    let payer: Keypair = read_keypair_file(env.payer_keypair_path).expect("Wallet keypair file not found");
+    let payer: Keypair = read_keypair_file(env.payer_keypair_path.clone()).expect("Wallet keypair file not found");
     info!("💳 Wallet {:#?}", payer.pubkey());
 
     info!("🆔 Create/Send Swap instruction....");
@@ -53,35 +53,38 @@ pub async fn create_and_send_swap_transaction(simulate_or_send: SendOrSimulate, 
             let (have_lut_address, lut_address) = get_lut_address_for_market(market_addr, false).unwrap();
             match have_lut_address {
                 true => {
-                    lut_addresses.push(lut_address.unwrap());
-                    // Get the accounts we need for this swap with the lookup
-                    match si.market.as_ref().unwrap().dex_label {
-                        DexLabel::METEORA => {
-                            //Here we keep the bin arrays
-                            let vec_accounts = &si.instruction.accounts;
-                            let len = vec_accounts.len();
-                            let new_vec = vec_accounts[len - 3..len].to_vec();
-                            swap_instructions[i].instruction.accounts = new_vec
-                        }
-                        DexLabel::RAYDIUM => {
-                            //Here nothing to keep
-                            let new_vec = Vec::new();
-                            swap_instructions[i].instruction.accounts = new_vec
-                        }
-                        DexLabel::ORCA_WHIRLPOOLS => {
-                            //Here we keep the tick arrays
-                            let vec_accounts = &si.instruction.accounts;
-                            let len = vec_accounts.len();
-                            let new_vec = vec_accounts[len - 4..len - 1].to_vec();
-                            swap_instructions[i].instruction.accounts = new_vec
-                        }
-                        DexLabel::ORCA => {
-                            //Dex Not implemented
-                        }
-                        DexLabel::RAYDIUM_CLMM => {
-                            //Dex Not implemented
-                        }
+                    if !lut_addresses.contains(&lut_address.unwrap()) {
+                        info!("LUT address {} pushed!", &lut_address.unwrap());
+                        lut_addresses.push(lut_address.unwrap());
                     }
+                    // Get the accounts we need for this swap with the lookup
+                    // match si.market.as_ref().unwrap().dex_label {
+                    //     DexLabel::METEORA => {
+                    //         //Here we keep the bin arrays
+                    //         let vec_accounts = &si.instruction.accounts;
+                    //         let len = vec_accounts.len();
+                    //         let new_vec = vec_accounts[len - 3..len].to_vec();
+                    //         swap_instructions[i].instruction.accounts = new_vec
+                    //     }
+                    //     DexLabel::RAYDIUM => {
+                    //         //Here nothing to keep
+                    //         let new_vec = Vec::new();
+                    //         swap_instructions[i].instruction.accounts = new_vec
+                    //     }
+                    //     DexLabel::ORCA_WHIRLPOOLS => {
+                    //         //Here we keep the tick arrays
+                    //         let vec_accounts = &si.instruction.accounts;
+                    //         let len = vec_accounts.len();
+                    //         let new_vec = vec_accounts[len - 4..len - 1].to_vec();
+                    //         swap_instructions[i].instruction.accounts = new_vec
+                    //     }
+                    //     DexLabel::ORCA => {
+                    //         //Dex Not implemented
+                    //     }
+                    //     DexLabel::RAYDIUM_CLMM => {
+                    //         //Dex Not implemented
+                    //     }
+                    // }
                 }
                 false => {
                     error!("❌ No LUT address already crafted for the market {:?}, the tx can revert...", si.market.as_ref().unwrap().address);
@@ -158,29 +161,67 @@ pub async fn create_and_send_swap_transaction(simulate_or_send: SendOrSimulate, 
     if simulate_or_send == SendOrSimulate::Send {
         let transaction_config: RpcSendTransactionConfig = RpcSendTransactionConfig {
             skip_preflight: false,
-            .. RpcSendTransactionConfig::default()
-        };
-    
-        let signature = rpc_client.send_transaction_with_config(
-            &tx,
-            transaction_config
-        ).unwrap();
-    
-        if chain == ChainType::Devnet {
-            info!("https://explorer.solana.com/tx/{}?cluster=devnet", signature);
-        } else {
-            info!("https://explorer.solana.com/tx/{}", signature);
-        }
+            //Confirmed give more accurate result: https://www.helius.dev/blog/how-to-land-transactions-on-solana#blockhash
+            preflight_commitment: Some(CommitmentLevel::Confirmed),
+            encoding: Some(UiTransactionEncoding::Base58),
+            max_retries: Some(0),
+            min_context_slot: None,
 
-        let commitment_config = CommitmentConfig::confirmed();
-        let tx_executed = check_tx_status(commitment_config, chain, signature).await?;
-        if tx_executed {
-            info!("✅ Swap transaction is well executed");
+        };
+ 
+        let new_payer: Keypair = read_keypair_file(env.payer_keypair_path).expect("Wallet keypair file not found");
+        let txn: Transaction = Transaction::new_signed_with_payer(
+            &instructions,
+            Some(&new_payer.pubkey()),
+            &vec![&new_payer],
+            rpc_client.get_latest_blockhash_with_commitment(commitment_config).expect("❌ Error in get latest blockhash").0,
+        );
+        println!("Rpc http address: {}", rpc_client.url());
+        // let signature = rpc_client.send_transaction_with_config(
+        //     &txn,
+        //     transaction_config
+        // ).unwrap();
+        
+        let non_blocking_rpc_client = solana_client::nonblocking::rpc_client::RpcClient::new(env.rpc_url.clone());
+        let arc_rpc_client = Arc::new(non_blocking_rpc_client);
+        let connection_cache = ConnectionCache::new_quic("connection_cache_cli_program_quic", 1);
+        let signer: [Arc<dyn Signer>; 1] = [Arc::new(new_payer) as Arc<dyn Signer>];
+
+        let iteration_number = 5;
+        let mut iteration_counter = 0;
+        let transaction_errors = if let ConnectionCache::Quic(cache) = connection_cache {
+            let tpu_client = solana_client::nonblocking::tpu_client::TpuClient::new_with_connection_cache(
+                arc_rpc_client.clone(),
+                &env.wss_rpc_url,
+                TpuClientConfig::default(),
+                cache,
+            )
+            .await?;
+            let error_tx = send_and_confirm_transactions_in_parallel(
+                arc_rpc_client,
+                Some(tpu_client),
+                &[txn.message],
+                &signer,
+                SendAndConfirmConfig {
+                    resign_txs_count: Some(iteration_number),
+                    with_spinner: true,
+                },
+            )
+            .await
+            .map_err(|err| format!("Data writes to account failed: {err}")).unwrap()
+            .into_iter()
+            .map(|err| format!("Data writes to account failed: {:?}", err))
+            // .flatten()
+            .collect::<String>();
+            println!("❌ Swap transaction is not executed: {:?}", error_tx);
+            iteration_counter += 1;
+        };
+        if iteration_counter >= iteration_number {
+            error!("❌ Swap transactions sended {} times, and all fails", iteration_counter);
         } else {
-            info!("❌ Swap transaction is not executed");
+            info!("✅ Swap transaction is well executed!");
         }
     }
-
     Ok(())
 }
 
@@ -191,7 +232,7 @@ pub async fn create_ata_extendlut_transaction(chain: ChainType, simulate_or_send
     let rpc_url = if chain.clone() == ChainType::Mainnet { &env.rpc_url } else { &env.devnet_rpc_url };
     let rpc_client: RpcClient = RpcClient::new(rpc_url);
 
-    let payer: Keypair = read_keypair_file(env.payer_keypair_path).expect("Wallet keypair file not found");
+    let payer: Keypair = read_keypair_file(env.payer_keypair_path.clone()).expect("Wallet keypair file not found");
     info!("💳 Wallet {:#?}", payer.pubkey());
 
     let mut vec_pda_instructions: Vec<Instruction> = Vec::new();
@@ -314,9 +355,7 @@ pub async fn create_ata_extendlut_transaction(chain: ChainType, simulate_or_send
     let priority_fees_ix = ComputeBudgetInstruction::set_compute_unit_price(10);
     vec_all_instructions[0] = priority_fees_ix;
     vec_all_instructions[1] = compute_budget_ix;
-    // info!("🔢 Prioritization Fees: {:?}", fees);
 
-    // println!("vec_all_instructions:{:?}", vec_all_instructions);
     //Send transaction
     if simulate_or_send == SendOrSimulate::Send {
         let transaction_config: RpcSendTransactionConfig = RpcSendTransactionConfig {
@@ -329,7 +368,7 @@ pub async fn create_ata_extendlut_transaction(chain: ChainType, simulate_or_send
 
         };
  
-        let new_payer: Keypair = read_keypair_file("C:\\Users\\Axel\\.config\\solana\\wallet.json").expect("Wallet keypair file not found");
+        let new_payer: Keypair = read_keypair_file(env.payer_keypair_path).expect("Wallet keypair file not found");
         let txn: Transaction = Transaction::new_signed_with_payer(
             &vec_all_instructions,
             Some(&new_payer.pubkey()),

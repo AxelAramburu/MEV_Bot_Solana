@@ -97,7 +97,8 @@ async fn main() -> Result<()> {
                 token_in: "So11111111111111111111111111111111111111112".to_string(),
                 token_out: "9jaZhJM6nMHTo4hY9DGabQ1HNuUWhJtm7js1fmKMVpkN".to_string(),
                 amount_in: 300000000,
-                estimated_amount_out: "8703355798604".to_string(),
+                // 8703355798604
+                estimated_amount_out: "8703355798".to_string(),
                 estimated_min_amount_out: "8617183959013".to_string()
             },
             SwapRouteSimulation{ 
@@ -107,8 +108,9 @@ async fn main() -> Result<()> {
                 token_0to1: true,
                 token_in: "9jaZhJM6nMHTo4hY9DGabQ1HNuUWhJtm7js1fmKMVpkN".to_string(),
                 token_out: "8wXtPeU6557ETkp9WHFY1n1EcU6NxDvbAggHGsMYiHsB".to_string(),
-                amount_in: 8703355798604, // 0.001 SOL
-                estimated_amount_out:"4002500590682".to_string(),
+                amount_in: 8703355798, // 0.001 SOL
+                //4002500590682
+                estimated_amount_out:"4002500".to_string(),
                 estimated_min_amount_out: "3998498090091".to_string()
             },
             SwapRouteSimulation{ 
@@ -118,7 +120,7 @@ async fn main() -> Result<()> {
                 token_0to1: false,
                 token_in: "8wXtPeU6557ETkp9WHFY1n1EcU6NxDvbAggHGsMYiHsB".to_string(),
                 token_out: "So11111111111111111111111111111111111111112".to_string(),
-                amount_in: 4002500590682, // 0.001 SOL
+                amount_in: 4002500, // 0.001 SOL
                 estimated_amount_out:"300776562".to_string(),
                 estimated_min_amount_out: "297798576".to_string()
             }
