@@ -7,13 +7,13 @@ use solana_sdk::pubkey::Pubkey;
 use std::io::{BufWriter, Write};
 use crate::{arbitrage::{
     calc_arb::{calculate_arb, get_markets_arb}, simulate::simulate_path, streams::get_fresh_accounts_states, types::{SwapPathResult, SwapPathSelected, SwapRouteSimulation, VecSwapPathResult, VecSwapPathSelected}
-}, common::utils::{from_str, write_file_swap__path_result}, transactions::create_transaction::{self, create_and_send_swap_transaction, create_ata_extendlut_transaction, ChainType, SendOrSimulate}};
+}, common::utils::{from_str, write_file_swap_path_result}, transactions::create_transaction::{self, create_and_send_swap_transaction, create_ata_extendlut_transaction, ChainType, SendOrSimulate}};
 use crate::markets::types::{Dex,Market};
 use super::{simulate::simulate_path_precision, types::{SwapPath, TokenInArb, TokenInfos}};
 use log::{debug, error, info};
 use anyhow::Result;
 
-pub async fn run_arbitrage_strategy(include_1hop: bool, include_2hop: bool, numbers_of_best_paths: usize, dexs: Vec<Dex>, tokens: Vec<TokenInArb>, tokens_infos: HashMap<String, TokenInfos>) -> Result<(String, VecSwapPathSelected)> {
+pub async fn run_arbitrage_strategy(simulation_amount: u64, include_1hop: bool, include_2hop: bool, numbers_of_best_paths: usize, dexs: Vec<Dex>, tokens: Vec<TokenInArb>, tokens_infos: HashMap<String, TokenInfos>) -> Result<(String, VecSwapPathSelected)> {
     info!("👀 Run Arbitrage Strategies...");
 
     
@@ -74,7 +74,7 @@ pub async fn run_arbitrage_strategy(include_1hop: bool, include_2hop: bool, numb
         let pubkeys: Vec<String> = path.paths.clone().iter().map(|route| route.clone().pool_address).collect();
         let markets: Vec<Market> = pubkeys.iter().filter_map(|key| fresh_markets_arb.get(key)).cloned().collect();
 
-        let (new_route_simulation, swap_simulation_result, result_difference) = simulate_path(path.clone(), markets.clone(), tokens_infos.clone(), route_simulation.clone()).await;
+        let (new_route_simulation, swap_simulation_result, result_difference) = simulate_path(simulation_amount, path.clone(), markets.clone(), tokens_infos.clone(), route_simulation.clone()).await;
         
         //If no error in swap path
         if swap_simulation_result.len() >= path.hops as usize {
@@ -261,7 +261,7 @@ pub async fn precision_strategy(socket: Client, path: SwapPath, markets: Vec<Mar
     }
 }   
 
-pub async fn sorted_interesting_path_strategy(path:String, tokens: Vec<TokenInArb>, tokens_infos: HashMap<String, TokenInfos>) -> Result<()>{
+pub async fn sorted_interesting_path_strategy(simulation_amount: u64, path:String, tokens: Vec<TokenInArb>, tokens_infos: HashMap<String, TokenInfos>) -> Result<()>{
 
     let file_read = OpenOptions::new().read(true).write(true).open(path)?;
     let mut paths_vec: VecSwapPathSelected = serde_json::from_reader(&file_read).unwrap();
@@ -272,7 +272,7 @@ pub async fn sorted_interesting_path_strategy(path:String, tokens: Vec<TokenInAr
     let tokens_for_tx: Vec<Pubkey> = tokens.iter().map(|tk| from_str(&tk.address).unwrap()).collect();
     loop {
         for (index, path) in paths.iter().enumerate() {
-            let (new_route_simulation, swap_simulation_result, result_difference) = simulate_path(path.path.clone(), path.markets.clone(), tokens_infos.clone(), route_simulation.clone()).await;
+            let (new_route_simulation, swap_simulation_result, result_difference) = simulate_path(simulation_amount, path.path.clone(), path.markets.clone(), tokens_infos.clone(), route_simulation.clone()).await;
             //If no error in swap path
             if swap_simulation_result.len() >= path.path.hops as usize {
                 // tokens.iter().map(|token| &token.symbol).cloned().collect::<Vec<String>>().join("-");
@@ -294,12 +294,12 @@ pub async fn sorted_interesting_path_strategy(path:String, tokens: Vec<TokenInAr
                     estimated_min_amount_out: swap_simulation_result[swap_simulation_result.len() - 1].estimated_min_amount_out.clone(), 
                     result: result_difference
                 };
-    
+                
                 if result_difference > 20000000.0 {
                     println!("💸💸💸💸💸💸💸💸💸 Begin Execute the tx 💸💸💸💸💸💸💸💸💸");
                     // let _ = create_ata_extendlut_transaction(
-                    //     ChainType::Mainnet,
-                    //     SendOrSimulate::Send,
+                        //     ChainType::Mainnet,
+                        //     SendOrSimulate::Send,
                     //     sp_result.clone(),
                     //     from_str("6nGymM5X1djYERKZtoZ3Yz3thChMVF6jVRDzhhcmxuee").unwrap(),
                     //     tokens_for_tx.clone()
@@ -309,8 +309,9 @@ pub async fn sorted_interesting_path_strategy(path:String, tokens: Vec<TokenInAr
                         ChainType::Mainnet, 
                         sp_result.clone()
                     ).await;
+
                     let path = format!("optimism_transactions/{}-{}.json", tokens_path, counter_sp_result);
-                    let _ = write_file_swap__path_result(path, sp_result);
+                    let _ = write_file_swap_path_result(path, sp_result);
                     counter_sp_result += 1;
 
                 }
@@ -318,5 +319,29 @@ pub async fn sorted_interesting_path_strategy(path:String, tokens: Vec<TokenInAr
             sleep(time::Duration::from_millis(200))
         }
     }
+
+}
+
+pub async fn optimism_tx_strategy(path:String) -> Result<()>{
+
+    let file_read = OpenOptions::new().read(true).write(true).open(path)?;
+    let mut spr: SwapPathResult = serde_json::from_reader(&file_read).unwrap();
+    let mut counter_sp_result = 0;
+
+    println!("💸💸💸💸💸💸💸💸💸 Begin Execute the tx 💸💸💸💸💸💸💸💸💸");
+    // let _ = create_ata_extendlut_transaction(
+    //     ChainType::Mainnet,
+    //     SendOrSimulate::Send,
+    //     sp_result.clone(),
+    //     from_str("6nGymM5X1djYERKZtoZ3Yz3thChMVF6jVRDzhhcmxuee").unwrap(),
+    //     tokens_for_tx.clone()
+    // ).await;
+    let _ = create_and_send_swap_transaction(
+        SendOrSimulate::Send,
+        ChainType::Mainnet, 
+        spr.clone()
+    ).await;
+
+    Ok(())
 
 }

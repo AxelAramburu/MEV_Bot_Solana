@@ -33,7 +33,7 @@ pub struct TokenInfos {
     pub symbol: String,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SwapRouteSimulation {
     pub id_route: u32,
     pub pool_address: String,
@@ -46,7 +46,7 @@ pub struct SwapRouteSimulation {
     pub estimated_min_amount_out: String,
 
 }
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SwapPathResult {
     pub path_id: u32,
     pub hops: u8,

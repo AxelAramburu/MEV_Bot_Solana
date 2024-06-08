@@ -5,10 +5,10 @@ use log::{info, LevelFilter};
 use solana_program::pubkey::Pubkey;
 use solana_sdk::bs58;
 use core::mem;
-use std::{collections::HashMap, fs::{File, OpenOptions}, io::{BufWriter, Write}};
+use std::{collections::HashMap, fs::{File, OpenOptions}};
 use thiserror::Error;
 use reqwest::Error;
-
+use std::io::{BufWriter, Write};
 
 use crate::{arbitrage::types::{SwapPathResult, TokenInArb, TokenInfos}, common::constants::{
     Env, PROJECT_NAME
@@ -80,14 +80,13 @@ pub fn setup_logger() -> Result<(), fern::InitError> {
     Ok(())
 }
 
-pub fn write_file_swap__path_result(path: String, content_raw: SwapPathResult) -> Result<()> {
+pub fn write_file_swap_path_result(path: String, content_raw: SwapPathResult) -> Result<()> {
     File::create(path.clone());
 
     let file = OpenOptions::new().read(true).write(true).open(path.clone())?;
     let mut writer = BufWriter::new(&file);
 
-    let mut content = content_raw;
-    writer.write_all(serde_json::to_string(&content)?.as_bytes())?;
+    writer.write_all(serde_json::to_string(&content_raw)?.as_bytes())?;
     writer.flush()?;
     info!("Data written to '{}' successfully.", path);
 
