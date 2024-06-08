@@ -41,7 +41,7 @@ pub async fn get_markets_arb(dexs: Vec<Dex>, tokens: Vec<TokenInArb>) -> HashMap
     return markets_arb;
 }
 
-pub fn calculate_arb(markets_arb: HashMap<String, Market>, tokens: Vec<TokenInArb>) -> (HashMap<String, Market>, Vec<SwapPath>) {
+pub fn calculate_arb(include_1hop: bool, include_2hop: bool, markets_arb: HashMap<String, Market>, tokens: Vec<TokenInArb>) -> (HashMap<String, Market>, Vec<SwapPath>) {
 
     //Sort valuables markets: ex: Remove low liquidity markets
     let mut sorted_markets_arb: HashMap<String, Market> = HashMap::new();
@@ -109,7 +109,7 @@ pub fn calculate_arb(markets_arb: HashMap<String, Market>, tokens: Vec<TokenInAr
     info!("🗑️  Excluded Markets: {}", excluded_markets_arb.len());
     let all_routes: Vec<Route> = compute_routes(sorted_markets_arb.clone());
 
-    let all_paths: Vec<SwapPath> = generate_swap_paths(all_routes, tokens.clone());
+    let all_paths: Vec<SwapPath> = generate_swap_paths(include_1hop, include_2hop, all_routes, tokens.clone());
 
     return (sorted_markets_arb, all_paths);
 }
@@ -132,11 +132,11 @@ pub fn compute_routes(markets_arb: HashMap<String, Market>) -> Vec<Route> {
     return all_routes;
 }
 
-pub fn generate_swap_paths(all_routes: Vec<Route>, tokens: Vec<TokenInArb>) -> Vec<SwapPath> {
+pub fn generate_swap_paths(include_1hop: bool, include_2hop: bool, all_routes: Vec<Route>, tokens: Vec<TokenInArb>) -> Vec<SwapPath> {
 
     //Settings hop generations
-    let include_1hop = true;
-    let include_2hop = true;
+    // let include_1hop = false;
+    // let include_2hop = true;
     info!("Hops Settings | 1 Hop : {} | 2 Hops : {}", if include_1hop == true {"✅"} else {"❌"}, if include_2hop == true {"✅"} else {"❌"});
 
     // On part du postulat que les pools de même jetons, du même Dex mais avec des fees différents peuvent avoir un prix différent,

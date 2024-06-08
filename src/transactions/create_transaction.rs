@@ -136,15 +136,16 @@ pub async fn create_and_send_swap_transaction(simulate_or_send: SendOrSimulate, 
         .. RpcSimulateTransactionConfig::default()
     };
     
-    for i in 0..9 {
-        let result = rpc_client.simulate_transaction_with_config(&tx, config.clone()).unwrap().value;
-        if result.clone().logs.unwrap().len() == 0 {
-            error!("❌ Get out! Simulate Error: {:#?}", result.err);
-            return Ok(())
-        } else {
-            info!("🧾 Simulate Tx Ata/Extend Logs: {:#?}", result.logs);
-        }
-    }
+    //For loop simulation
+    // for i in 0..9 {
+    //     let result = rpc_client.simulate_transaction_with_config(&tx, config.clone()).unwrap().value;
+    //     if result.clone().logs.unwrap().len() == 0 {
+    //         error!("❌ Get out! Simulate Error: {:#?}", result.err);
+    //         return Ok(())
+    //     } else {
+    //         info!("🧾 Simulate Tx Ata/Extend Logs: {:#?}", result.logs);
+    //     }
+    // }
 
     let result = rpc_client.simulate_transaction_with_config(&tx, config).unwrap().value;
     let logs_simulation = result.clone().logs.unwrap();
