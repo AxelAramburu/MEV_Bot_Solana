@@ -1,15 +1,16 @@
 use anyhow::Result;
 use borsh::{BorshDeserialize, BorshSerialize};
 use fern::colors::{Color, ColoredLevelConfig};
-use log::LevelFilter;
+use log::{info, LevelFilter};
 use solana_program::pubkey::Pubkey;
 use solana_sdk::bs58;
 use core::mem;
-use std::collections::HashMap;
+use std::{collections::HashMap, fs::{File, OpenOptions}, io::{BufWriter, Write}};
 use thiserror::Error;
 use reqwest::Error;
 
-use crate::{arbitrage::types::{TokenInArb, TokenInfos}, common::constants::{
+
+use crate::{arbitrage::types::{SwapPathResult, TokenInArb, TokenInfos}, common::constants::{
     Env, PROJECT_NAME
 }};
 use solana_client::rpc_client::RpcClient;
@@ -76,6 +77,20 @@ pub fn setup_logger() -> Result<(), fern::InitError> {
         .chain(errors_config)
         .chain(stdout_config)
         .apply()?;
+    Ok(())
+}
+
+pub fn write_file_swap__path_result(path: String, content_raw: SwapPathResult) -> Result<()> {
+    File::create(path.clone());
+
+    let file = OpenOptions::new().read(true).write(true).open(path.clone())?;
+    let mut writer = BufWriter::new(&file);
+
+    let mut content = content_raw;
+    writer.write_all(serde_json::to_string(&content)?.as_bytes())?;
+    writer.flush()?;
+    info!("Data written to '{}' successfully.", path);
+
     Ok(())
 }
 

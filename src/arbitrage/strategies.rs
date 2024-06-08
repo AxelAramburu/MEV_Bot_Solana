@@ -1,18 +1,19 @@
-use std::{collections::HashMap, fs::File, thread::sleep, time};
+use std::{collections::HashMap, fs::{File, OpenOptions}, thread::sleep, time::{self, SystemTime}};
 use borsh::error;
 use indicatif::{ProgressBar, ProgressStyle};
 use itertools::enumerate;
 use rust_socketio::{asynchronous::{Client}};
 use solana_sdk::pubkey::Pubkey;
-
+use std::io::{BufWriter, Write};
 use crate::{arbitrage::{
-    calc_arb::{calculate_arb, get_markets_arb}, simulate::simulate_path, streams::get_fresh_accounts_states, types::{SwapPathResult, SwapPathSelected, SwapRouteSimulation, VecSwapPathResult}
-}, common::utils::from_str, transactions::create_transaction::{self, create_and_send_swap_transaction, create_ata_extendlut_transaction, ChainType, SendOrSimulate}};
+    calc_arb::{calculate_arb, get_markets_arb}, simulate::simulate_path, streams::get_fresh_accounts_states, types::{SwapPathResult, SwapPathSelected, SwapRouteSimulation, VecSwapPathResult, VecSwapPathSelected}
+}, common::utils::{from_str, write_file_swap__path_result}, transactions::create_transaction::{self, create_and_send_swap_transaction, create_ata_extendlut_transaction, ChainType, SendOrSimulate}};
 use crate::markets::types::{Dex,Market};
 use super::{simulate::simulate_path_precision, types::{SwapPath, TokenInArb, TokenInfos}};
 use log::{debug, error, info};
+use anyhow::Result;
 
-pub async fn run_arbitrage_strategy(socket: Client, dexs: Vec<Dex>, tokens: Vec<TokenInArb>, tokens_infos: HashMap<String, TokenInfos>) -> Vec<SwapPathSelected> {
+pub async fn run_arbitrage_strategy(include_1hop: bool, include_2hop: bool, numbers_of_best_paths: usize, dexs: Vec<Dex>, tokens: Vec<TokenInArb>, tokens_infos: HashMap<String, TokenInfos>) -> Result<(String, VecSwapPathSelected)> {
     info!("👀 Run Arbitrage Strategies...");
 
     
@@ -23,7 +24,7 @@ pub async fn run_arbitrage_strategy(socket: Client, dexs: Vec<Dex>, tokens: Vec<
     // debug!("DEBUG {:?}", fresh_markets_arb.get(&"65shmpuYmxx5p7ggNCZbyrGLCXVqbBR1ZD5aAocRBUNG".to_string()));
 
     // Sort markets with low liquidity
-    let (sorted_markets_arb, all_paths) = calculate_arb(markets_arb.clone(), tokens.clone());
+    let (sorted_markets_arb, all_paths) = calculate_arb(include_1hop, include_2hop, markets_arb.clone(), tokens.clone());
 
     //Get fresh account state
     let fresh_markets_arb = get_fresh_accounts_states(sorted_markets_arb.clone()).await;  
@@ -44,11 +45,11 @@ pub async fn run_arbitrage_strategy(socket: Client, dexs: Vec<Dex>, tokens: Vec<
     bar.set_message(format!("❌ Failed routes: {}/{} 💸 Positive routes: {}/{}", counter_failed_paths, bar.position(), counter_positive_paths, bar.position()));
 
     let mut best_paths_for_strat: Vec<SwapPathSelected> = Vec::new();
-    let numbers_of_best_paths = 5;
     // for i in 0..numbers_of_best_paths {
     //     best_paths_for_strat.push((-1000000000.0, SwapPath{ hops: 0, paths: Vec::new(), id_paths: Vec::new() }));
     // }
     //Begin simulate all paths
+    let mut return_path = "".to_string();
     for (i, path) in all_paths.iter().enumerate() {     //Add this to limit iterations: .take(100)
         // println!("👀 Swap paths: {:?}", path);
 
@@ -174,9 +175,31 @@ pub async fn run_arbitrage_strategy(socket: Client, dexs: Vec<Dex>, tokens: Vec<
         //     info!("amount_in: {} {}", sp.amount_in, sp.token_in_symbol);
         //     info!("estimated_amount_out: {} {}", sp.estimated_amount_out, sp.token_out_symbol);
         // }
+        
     }
+    
+    let mut tokens_list = "".to_string();
+    for (index, token) in tokens.iter().enumerate() {
+        if index == 0 {
+            tokens_list = format!("{}", tokens[index].symbol.clone());
+        } else {
+            tokens_list = format!("{}-{}", tokens_list, tokens[index].symbol.clone());
+        }
+    }
+    let mut path = format!("best_paths_selected/{}.json", tokens_list);
+    File::create(path.clone());
+
+    let file = OpenOptions::new().read(true).write(true).open(path.clone())?;
+    let mut writer = BufWriter::new(&file);
+
+    let mut content = VecSwapPathSelected{value: best_paths_for_strat.clone()};
+    writer.write_all(serde_json::to_string(&content)?.as_bytes())?;
+    writer.flush()?;
+    info!("Data written to '{}' successfully.", path);
+
+    return_path = path;
     bar.finish();
-    return best_paths_for_strat;
+    return Ok((return_path, VecSwapPathSelected{ value: best_paths_for_strat}));
 }
 
 pub async fn precision_strategy(socket: Client, path: SwapPath, markets: Vec<Market>, tokens: Vec<TokenInArb>, tokens_infos: HashMap<String, TokenInfos>) {
@@ -238,7 +261,13 @@ pub async fn precision_strategy(socket: Client, path: SwapPath, markets: Vec<Mar
     }
 }   
 
-pub async fn sorted_interesting_path_strategy(paths: Vec<SwapPathSelected>, tokens: Vec<TokenInArb>, tokens_infos: HashMap<String, TokenInfos>) {
+pub async fn sorted_interesting_path_strategy(path:String, tokens: Vec<TokenInArb>, tokens_infos: HashMap<String, TokenInfos>) -> Result<()>{
+
+    let file_read = OpenOptions::new().read(true).write(true).open(path)?;
+    let mut paths_vec: VecSwapPathSelected = serde_json::from_reader(&file_read).unwrap();
+    let mut counter_sp_result = 0;
+
+    let paths: Vec<SwapPathSelected> = paths_vec.value;
     let mut route_simulation: HashMap<Vec<u32>, Vec<SwapRouteSimulation>> = HashMap::new();
     let tokens_for_tx: Vec<Pubkey> = tokens.iter().map(|tk| from_str(&tk.address).unwrap()).collect();
     loop {
@@ -254,7 +283,7 @@ pub async fn sorted_interesting_path_strategy(paths: Vec<SwapPathSelected>, toke
                 let sp_result: SwapPathResult = SwapPathResult{ 
                     path_id: index as u32, 
                     hops: path.path.hops,
-                    tokens_path: tokens_path, 
+                    tokens_path: tokens_path.clone(), 
                     route_simulations: swap_simulation_result.clone(), 
                     token_in: tokens[0].address.clone(), 
                     token_in_symbol: tokens[0].symbol.clone(), 
@@ -280,6 +309,9 @@ pub async fn sorted_interesting_path_strategy(paths: Vec<SwapPathSelected>, toke
                         ChainType::Mainnet, 
                         sp_result.clone()
                     ).await;
+                    let path = format!("optimism_transactions/{}-{}.json", tokens_path, counter_sp_result);
+                    let _ = write_file_swap__path_result(path, sp_result);
+                    counter_sp_result += 1;
 
                 }
             }

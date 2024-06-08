@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::path;
 
 use anyhow::Result;
 use futures::FutureExt;
@@ -19,6 +20,23 @@ use rust_socketio::{Payload, asynchronous::{Client, ClientBuilder},};
 
 #[tokio::main]
 async fn main() -> Result<()> {
+
+    //Options
+    let massive_strategie: bool = false;
+    let best_strategie: bool = true;
+    let optimism_strategie: bool = true;
+
+    //Massive strat options
+    let include_1hop: bool = true;
+    let include_2hop: bool = false;
+    let numbers_of_best_paths: usize = 10;
+    let fetch_new_pools: bool = false;
+
+    //best_strategie options
+    let path_symbols: String = "SOL-TOPG".to_string();
+
+    //Optism strategie options
+
     dotenv::dotenv().ok();
     // log4rs::init_file("logging_config.yaml", Default::default()).unwrap();
     setup_logger().unwrap();
@@ -29,29 +47,36 @@ async fn main() -> Result<()> {
 
     let mut set: JoinSet<()> = JoinSet::new();
     
-    info!("🏊 Launch pools fetching infos...");
-    let dexs = load_all_pools(false).await;
-    info!("🏊 {} Dexs are loaded", dexs.len());
-    
     // // The first token is the base token (here SOL)
-    // let tokens_to_arb: Vec<TokenInArb> = vec![
-    //     TokenInArb{address: String::from("So11111111111111111111111111111111111111112"), symbol: String::from("SOL")}, // Base token here
-    //     TokenInArb{address: String::from("25hAyBQfoDhfWx9ay6rarbgvWGwDdNqcHsXS3jQ3mTDJ"), symbol: String::from("MANEKI")},
-    //     TokenInArb{address: String::from("JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN"), symbol: String::from("JUP")},
-    //     TokenInArb{address: String::from("EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm"), symbol: String::from("WIF")},
-    // ];
-    // The first token is the base token (here SOL)
     let tokens_to_arb: Vec<TokenInArb> = vec![
+        // TokenInArb{address: String::from("So11111111111111111111111111111111111111112"), symbol: String::from("SOL")}, // Base token here
+        // TokenInArb{address: String::from("8wXtPeU6557ETkp9WHFY1n1EcU6NxDvbAggHGsMYiHsB"), symbol: String::from("GME")},
+        // TokenInArb{address: String::from("EKEWAk7hfnwfR8DBb1cTayPPambqyC7pwNiYkaYQKQHp"), symbol: String::from("KITTY")},
+        // TokenInArb{address: String::from("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"), symbol: String::from("USDC")},
+        // TokenInArb{address: String::from("AkVt31h8vgji5wF4nVbq1QmBV5wBoe8JdSoDTkDhQwEw"), symbol: String::from("WSB")},
+        /////////////
+        /////////////
+        /////////////
         TokenInArb{address: String::from("So11111111111111111111111111111111111111112"), symbol: String::from("SOL")}, // Base token here
-        // TokenInArb{address: String::from("8NH3AfwkizHmbVd83SSxc2YbsFmFL4m2BeepvL6upump"), symbol: String::from("TOPG")},
-        TokenInArb{address: String::from("4GJ3TCt5mTgQT5BRKb14AkjddpFQqKVfphxzS3t4foZ9"), symbol: String::from("jenner")},
+        // TokenInArb{address: String::from("5mbK36SZ7J19An8jFochhQS4of8g6BwUjbeCSxBSoWdp"), symbol: String::from("michi")},
+        // TokenInArb{address: String::from("6D7NaB2xsLd7cauWu1wKk6KBsJohJmP2qZH9GEfVi5Ui"), symbol: String::from("SC")},
+        // TokenInArb{address: String::from("EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm"), symbol: String::from("WIF")},
+        // TokenInArb{address: String::from("FU1q8vJpZNUrmqsciSjp8bAKKidGsLmouB8CBdf8TKQv"), symbol: String::from("tremp")},
+        // TokenInArb{address: String::from("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"), symbol: String::from("USDC")},
+        TokenInArb{address: String::from("8NH3AfwkizHmbVd83SSxc2YbsFmFL4m2BeepvL6upump"), symbol: String::from("TOPG")},
     ];
 
+    // let tokens_to_arb: Vec<TokenInArb> = vec![
+    //     TokenInArb{address: String::from("So11111111111111111111111111111111111111112"), symbol: String::from("SOL")}, // Base token here
+    //     // TokenInArb{address: String::from("5mbK36SZ7J19An8jFochhQS4of8g6BwUjbeCSxBSoWdp"), symbol: String::from("michi")},
+    //     // TokenInArb{address: String::from("6D7NaB2xsLd7cauWu1wKk6KBsJohJmP2qZH9GEfVi5Ui"), symbol: String::from("SC")},
+    //     // TokenInArb{address: String::from("EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm"), symbol: String::from("WIF")},
+    //     // TokenInArb{address: String::from("FU1q8vJpZNUrmqsciSjp8bAKKidGsLmouB8CBdf8TKQv"), symbol: String::from("tremp")},
+    //     // TokenInArb{address: String::from("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"), symbol: String::from("USDC")},
+    //     TokenInArb{address: String::from("8NH3AfwkizHmbVd83SSxc2YbsFmFL4m2BeepvL6upump"), symbol: String::from("TOPG")},
+    // ];
     let tokens_infos: HashMap<String, TokenInfos> = get_tokens_infos(tokens_to_arb.clone()).await;
 
-    info!("🪙🪙 Tokens Infos: {:?}", tokens_to_arb);
-    info!("📈 Launch arbitrage process...");
-    
     info!("Open Socket IO channel...");
     let env = Env::new();
     
@@ -79,9 +104,26 @@ async fn main() -> Result<()> {
         .expect("Connection failed");
 
 
+    if massive_strategie {
+        info!("🏊 Launch pools fetching infos...");
+        let dexs = load_all_pools(fetch_new_pools).await;
+        info!("🏊 {} Dexs are loaded", dexs.len());
+        
+        
+        info!("🪙🪙 Tokens Infos: {:?}", tokens_to_arb);
+        info!("📈 Launch arbitrage process...");
+        let result = run_arbitrage_strategy(include_1hop, include_2hop, numbers_of_best_paths, dexs, tokens_to_arb.clone(), tokens_infos.clone()).await;
+        let (path_for_best_strategie, swap_path_selected) = result.unwrap();
+
+        if best_strategie {
+            let _ = sorted_interesting_path_strategy(path_for_best_strategie, tokens_to_arb.clone(), tokens_infos.clone()).await;
+        }
+    }
     
-    let swap_path_selected = run_arbitrage_strategy(socket, dexs, tokens_to_arb.clone(), tokens_infos.clone()).await;
-    let _ = sorted_interesting_path_strategy(swap_path_selected, tokens_to_arb, tokens_infos).await;
+    if best_strategie {
+        let path_best_strategie: String = format!("best_paths_selected/{}.json", path_symbols);
+        let _ = sorted_interesting_path_strategy(path_best_strategie, tokens_to_arb.clone(), tokens_infos.clone()).await;
+    }
     
         
     // let spr = SwapPathResult{ 

@@ -3,7 +3,7 @@ use crate::markets::utils::toPairString;
 use serde::{Deserialize, Serialize};
 use strum_macros::EnumIter;
 
-#[derive(Debug, Clone, EnumIter, Serialize, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, EnumIter, Serialize, Deserialize, Eq, PartialEq, Hash)]
 pub enum DexLabel {
     ORCA,
     ORCA_WHIRLPOOLS,
@@ -33,7 +33,7 @@ impl DexLabel {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Market {
     pub tokenMintA: String,
     pub tokenVaultA: String,

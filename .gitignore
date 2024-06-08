@@ -11,3 +11,4 @@
 .env
 PseudoCode.md
 src/markets/cache/meteora-markets.json
+best_paths_selected/*

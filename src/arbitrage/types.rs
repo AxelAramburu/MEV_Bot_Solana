@@ -1,4 +1,4 @@
-use serde::Serialize;
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 use crate::markets::types::{DexLabel, Market};
 
@@ -8,7 +8,7 @@ pub struct TokenInArb {
     pub symbol: String,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Route {
     pub id: u32,
     pub dex: DexLabel,
@@ -19,7 +19,7 @@ pub struct Route {
     pub fee: u128,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SwapPath {
     pub hops: u8,
     pub paths: Vec<Route>,
@@ -65,9 +65,13 @@ pub struct SwapPathResult {
 pub struct VecSwapPathResult {
     pub result: Vec<SwapPathResult>
 }
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SwapPathSelected {
     pub result: f64,
     pub path: SwapPath,
     pub markets: Vec<Market>
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VecSwapPathSelected {
+    pub value: Vec<SwapPathSelected>
 }
