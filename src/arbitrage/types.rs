@@ -1,6 +1,6 @@
 use serde::Serialize;
 
-use crate::markets::types::DexLabel;
+use crate::markets::types::{DexLabel, Market};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct TokenInArb {
@@ -64,4 +64,10 @@ pub struct SwapPathResult {
 #[derive(Debug, Clone, Serialize)]
 pub struct VecSwapPathResult {
     pub result: Vec<SwapPathResult>
+}
+#[derive(Debug, Clone)]
+pub struct SwapPathSelected {
+    pub result: f64,
+    pub path: SwapPath,
+    pub markets: Vec<Market>
 }
