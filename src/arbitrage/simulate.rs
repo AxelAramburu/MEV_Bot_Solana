@@ -8,12 +8,11 @@ use crate::markets::meteora::simulate_route_meteora;
 use crate::markets::{orca_whirpools::simulate_route_orca_whirpools, raydium::simulate_route_raydium, types::{DexLabel, Market}};
 use super::types::{SwapPath, SwapRouteSimulation, TokenInfos};
 
-pub async fn simulate_path(path: SwapPath, markets: Vec<Market>, tokens_infos: HashMap<String, TokenInfos>, mut route_simulation: HashMap<Vec<u32>, Vec<SwapRouteSimulation>>) -> (HashMap<Vec<u32>, Vec<SwapRouteSimulation>>, Vec<SwapRouteSimulation>, f64) {
+pub async fn simulate_path(simulation_amount: u64, path: SwapPath, markets: Vec<Market>, tokens_infos: HashMap<String, TokenInfos>, mut route_simulation: HashMap<Vec<u32>, Vec<SwapRouteSimulation>>) -> (HashMap<Vec<u32>, Vec<SwapRouteSimulation>>, Vec<SwapRouteSimulation>, f64) {
     println!("🚕🚕🚕🚕  NEW PATH  🚕🚕🚕🚕");
     println!("Nb. Hops : {}", path.hops);
     let decimals = 9;
-    // let mut amount_in = 1 * 10_u64.pow(decimals);
-    let mut amount_in = 600000000;
+    let mut amount_in = simulation_amount;
     let amount_begin= amount_in;
 
     let mut swap_simulation_result: Vec<SwapRouteSimulation> = Vec::new();

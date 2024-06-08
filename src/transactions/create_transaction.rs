@@ -159,6 +159,7 @@ pub async fn create_and_send_swap_transaction(simulate_or_send: SendOrSimulate, 
     }
 
     let result_cu: u64 = result.units_consumed.unwrap();
+    let result_cu: u64 = 150000;
     info!("🔢 Computed Units: {}", result_cu);
 
     let fees = rpc_client.get_recent_prioritization_fees(&vec![])?;
