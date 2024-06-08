@@ -8,6 +8,7 @@ pub fn get_env(key: &str) -> String {
 pub struct Env {
     pub block_engine_url: String,
     pub mainnet_rpc_url: String,
+    pub rpc_url_tx: String,
     pub devnet_rpc_url: String,
     pub rpc_url: String,
     pub wss_rpc_url: String,
@@ -25,6 +26,7 @@ impl Env {
             block_engine_url: get_env("BLOCK_ENGINE_URL"),
             rpc_url: get_env("RPC_URL"),
             mainnet_rpc_url: get_env("MAINNET_RPC_URL"),
+            rpc_url_tx: get_env("RPC_URL_TX"),
             devnet_rpc_url: get_env("DEVNET_RPC_URL"),
             wss_rpc_url: get_env("WSS_RPC_URL"),
             geyser_url: get_env("GEYSER_URL"),

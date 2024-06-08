@@ -24,7 +24,7 @@ pub async fn create_and_send_swap_transaction(simulate_or_send: SendOrSimulate, 
     info!("🔄 Create swap transaction.... ");
     
     let env = Env::new();
-    let rpc_url = if chain.clone() == ChainType::Mainnet { env.rpc_url.clone() } else { env.devnet_rpc_url };
+    let rpc_url = if chain.clone() == ChainType::Mainnet { env.rpc_url_tx.clone() } else { env.devnet_rpc_url };
     let rpc_client: RpcClient = RpcClient::new(rpc_url);
 
     let payer: Keypair = read_keypair_file(env.payer_keypair_path.clone()).expect("Wallet keypair file not found");
@@ -136,8 +136,21 @@ pub async fn create_and_send_swap_transaction(simulate_or_send: SendOrSimulate, 
         .. RpcSimulateTransactionConfig::default()
     };
     
+    for i in 0..9 {
+        let result = rpc_client.simulate_transaction_with_config(&tx, config.clone()).unwrap().value;
+        if result.clone().logs.unwrap().len() == 0 {
+            error!("❌ Get out! Simulate Error: {:#?}", result.err);
+            return Ok(())
+        } else {
+            info!("🧾 Simulate Tx Ata/Extend Logs: {:#?}", result.logs);
+        }
+    }
+
     let result = rpc_client.simulate_transaction_with_config(&tx, config).unwrap().value;
-    if result.clone().logs.unwrap().len() == 0 {
+    let logs_simulation = result.clone().logs.unwrap();
+    let last_logs_simulation = &logs_simulation[logs_simulation.len() - 1];
+    println!("last_logs_simulation: {}", last_logs_simulation);
+    if logs_simulation.len() == 0 {
         error!("❌ Get out! Simulate Error: {:#?}", result.err);
         return Ok(())
     } else {
@@ -152,7 +165,7 @@ pub async fn create_and_send_swap_transaction(simulate_or_send: SendOrSimulate, 
     info!("🔢 Average Prioritization fees price: {}", average_fees);
 
     let compute_budget_ix = ComputeBudgetInstruction::set_compute_unit_limit(result_cu as u32);
-    let priority_fees_ix = ComputeBudgetInstruction::set_compute_unit_price(10);
+    let priority_fees_ix = ComputeBudgetInstruction::set_compute_unit_price(100);
     instructions[0] = priority_fees_ix;
     instructions[1] = compute_budget_ix;
 
@@ -160,7 +173,7 @@ pub async fn create_and_send_swap_transaction(simulate_or_send: SendOrSimulate, 
     //Send transaction
     if simulate_or_send == SendOrSimulate::Send {
         let transaction_config: RpcSendTransactionConfig = RpcSendTransactionConfig {
-            skip_preflight: false,
+            skip_preflight: true,
             //Confirmed give more accurate result: https://www.helius.dev/blog/how-to-land-transactions-on-solana#blockhash
             preflight_commitment: Some(CommitmentLevel::Confirmed),
             encoding: Some(UiTransactionEncoding::Base58),
@@ -182,12 +195,12 @@ pub async fn create_and_send_swap_transaction(simulate_or_send: SendOrSimulate, 
         //     transaction_config
         // ).unwrap();
         
-        let non_blocking_rpc_client = solana_client::nonblocking::rpc_client::RpcClient::new(env.rpc_url.clone());
+        let non_blocking_rpc_client = solana_client::nonblocking::rpc_client::RpcClient::new(env.rpc_url_tx.clone());
         let arc_rpc_client = Arc::new(non_blocking_rpc_client);
         let connection_cache = ConnectionCache::new_quic("connection_cache_cli_program_quic", 1);
         let signer: [Arc<dyn Signer>; 1] = [Arc::new(new_payer) as Arc<dyn Signer>];
 
-        let iteration_number = 5;
+        let iteration_number = 2;
         let mut iteration_counter = 0;
         let transaction_errors = if let ConnectionCache::Quic(cache) = connection_cache {
             let tpu_client = solana_client::nonblocking::tpu_client::TpuClient::new_with_connection_cache(
@@ -208,19 +221,19 @@ pub async fn create_and_send_swap_transaction(simulate_or_send: SendOrSimulate, 
                 },
             )
             .await
-            .map_err(|err| format!("Data writes to account failed: {err}")).unwrap()
+            .map_err(|err| format!("Data writes to account failed: {err}")).unwrap_or_default()
             .into_iter()
             .map(|err| format!("Data writes to account failed: {:?}", err))
             // .flatten()
             .collect::<String>();
-            println!("❌ Swap transaction is not executed: {:?}", error_tx);
+            info!("❌ Swap transaction is not executed: {:?}", error_tx);
             iteration_counter += 1;
         };
-        if iteration_counter >= iteration_number {
-            error!("❌ Swap transactions sended {} times, and all fails", iteration_counter);
-        } else {
-            info!("✅ Swap transaction is well executed!");
-        }
+        // if iteration_counter >= iteration_number {
+        //     error!("❌ Swap transactions sended {} times, and all fails", iteration_counter);
+        // } else {
+        //     info!("✅ Swap transaction is well executed!");
+        // }
     }
     Ok(())
 }
@@ -229,7 +242,7 @@ pub async fn create_ata_extendlut_transaction(chain: ChainType, simulate_or_send
     info!("🔄 Create ATA/Extend LUT transaction.... ");
     
     let env = Env::new();
-    let rpc_url = if chain.clone() == ChainType::Mainnet { &env.rpc_url } else { &env.devnet_rpc_url };
+    let rpc_url = if chain.clone() == ChainType::Mainnet { &env.rpc_url_tx } else { &env.devnet_rpc_url };
     let rpc_client: RpcClient = RpcClient::new(rpc_url);
 
     let payer: Keypair = read_keypair_file(env.payer_keypair_path.clone()).expect("Wallet keypair file not found");
@@ -381,7 +394,7 @@ pub async fn create_ata_extendlut_transaction(chain: ChainType, simulate_or_send
         //     transaction_config
         // ).unwrap();
         
-        let non_blocking_rpc_client = solana_client::nonblocking::rpc_client::RpcClient::new(env.rpc_url.clone());
+        let non_blocking_rpc_client = solana_client::nonblocking::rpc_client::RpcClient::new(env.rpc_url_tx.clone());
         let arc_rpc_client = Arc::new(non_blocking_rpc_client);
         let connection_cache = ConnectionCache::new_quic("connection_cache_cli_program_quic", 1);
         let signer: [Arc<dyn Signer>; 1] = [Arc::new(new_payer) as Arc<dyn Signer>];
