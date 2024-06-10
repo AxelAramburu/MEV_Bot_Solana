@@ -46,7 +46,7 @@ pub struct Market {
     pub liquidity: Option<u128>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Dex {
     pub pairToMarkets: HashMap<String, Vec<Market>>,
     // ammCalcAddPoolMessages: AmmCalcWorkerParamMessage[];

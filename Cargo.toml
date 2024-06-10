@@ -70,6 +70,10 @@ spl-associated-token-account = "3.0.2"
 anchor-safe-math = "0.5.0"
 num-bigint = "0.4.5"
 solana-transaction-status = "1.18.15"
+plotters = { version = "^0.3.5", default_features = false, features = ["evcxr", "all_series", "all_elements"] }
+piston_window = "0.132.0"
+plotters-piston = "0.3.0"
+systemstat = "0.2.3"
 
 [profile.release]
 codegen-units = 1
