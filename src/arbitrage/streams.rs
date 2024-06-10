@@ -12,21 +12,6 @@ use crate::{
     markets::types::{DexLabel, Market}
 };
 
-//Subscribe to all acounts changes with accountSubscribe
-pub async fn stream_accounts_change(accounts: HashMap<Pubkey, DexLabel>) -> Result<()> {
-    // for (pubkey, dex_label) in accounts.clone() {
-    //     match dex_label {
-    //         DexLabel::ORCA => stream_orca(pubkey).await,
-    //         DexLabel::ORCA_WHIRLPOOLS => stream_orca_whirpools(pubkey).await,
-    //         DexLabel::RAYDIUM_CLMM => stream_raydium_clmm(pubkey),
-    //         _ => println!("Bad DexLabel in Stream"),
-    //     }
-
-    // }
-
-    Ok(())
-}
-
 //Get fresh data on all acounts with getMultipleAccounts
 pub async fn get_fresh_accounts_states(mut accounts: HashMap<String, Market>) -> HashMap<String, Market> {
     let env = Env::new();

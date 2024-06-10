@@ -1,5 +1,6 @@
 use std::{collections::HashMap, fs::{File, OpenOptions}, thread::sleep, time::{self, SystemTime}};
 use borsh::error;
+use chrono::{Datelike, Utc};
 use indicatif::{ProgressBar, ProgressStyle};
 use itertools::enumerate;
 use rust_socketio::{asynchronous::{Client}};
@@ -13,11 +14,13 @@ use super::{simulate::simulate_path_precision, types::{SwapPath, TokenInArb, Tok
 use log::{debug, error, info};
 use anyhow::Result;
 
-pub async fn run_arbitrage_strategy(simulation_amount: u64, include_1hop: bool, include_2hop: bool, numbers_of_best_paths: usize, dexs: Vec<Dex>, tokens: Vec<TokenInArb>, tokens_infos: HashMap<String, TokenInfos>) -> Result<(String, VecSwapPathSelected)> {
+use tokio::net::TcpStream;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+pub async fn run_arbitrage_strategy(simulation_amount: u64, get_fresh_pools_bool: bool, restrict_sol_usdc: bool, include_1hop: bool, include_2hop: bool, numbers_of_best_paths: usize, dexs: Vec<Dex>, tokens: Vec<TokenInArb>, tokens_infos: HashMap<String, TokenInfos>) -> Result<(String, VecSwapPathSelected)> {
     info!("👀 Run Arbitrage Strategies...");
 
-    
-    let markets_arb = get_markets_arb(dexs, tokens.clone()).await;
+    let markets_arb = get_markets_arb(get_fresh_pools_bool, restrict_sol_usdc, dexs, tokens.clone()).await;
 
     // println!("DEBUG {:?}", fresh_markets_arb);
     // debug!("DEBUG {:?}", markets_arb.get(&"3s3CzbFzkqLvXYA93M3uHCes2nc4SiuZ11emtpDJwCht".to_string()));
@@ -50,6 +53,8 @@ pub async fn run_arbitrage_strategy(simulation_amount: u64, include_1hop: bool, 
     // }
     //Begin simulate all paths
     let mut return_path = "".to_string();
+    let mut counter_sp_result = 0;
+
     for (i, path) in all_paths.iter().enumerate() {     //Add this to limit iterations: .take(100)
         // println!("👀 Swap paths: {:?}", path);
 
@@ -86,7 +91,7 @@ pub async fn run_arbitrage_strategy(simulation_amount: u64, include_1hop: bool, 
             let sp_result: SwapPathResult = SwapPathResult{ 
                 path_id: i as u32, 
                 hops: path.hops,
-                tokens_path: tokens_path, 
+                tokens_path: tokens_path.clone(), 
                 route_simulations: swap_simulation_result.clone(), 
                 token_in: tokens[0].address.clone(), 
                 token_in_symbol: tokens[0].symbol.clone(), 
@@ -97,7 +102,29 @@ pub async fn run_arbitrage_strategy(simulation_amount: u64, include_1hop: bool, 
                 estimated_min_amount_out: swap_simulation_result[swap_simulation_result.len() - 1].estimated_min_amount_out.clone(), 
                 result: result_difference
             };
-            swap_paths_results.result.push(sp_result);
+            swap_paths_results.result.push(sp_result.clone());
+
+            if result_difference > 20000000.0 {
+                println!("💸💸💸💸💸💸💸💸💸 Begin Execute the tx 💸💸💸💸💸💸💸💸💸");
+                info!("💸💸💸💸💸💸💸💸💸 Send transaction execution... 💸💸💸💸💸💸💸💸💸");
+                
+                let now = Utc::now();
+                let date = format!("{}-{}-{}", now.day(), now.month(), now.year());
+
+                let path = format!("optimism_transactions/{}-{}-{}.json", date, tokens_path.clone(), counter_sp_result);
+                let _ = write_file_swap_path_result(path.clone(), sp_result);
+                counter_sp_result += 1;
+                
+                //Send message to Rust execution program
+                let mut stream = TcpStream::connect("127.0.0.1:8080").await?;
+
+                let message = path.as_bytes();
+                stream.write_all(message).await?;
+                info!("🛜  Sent: {} tx to executor", String::from_utf8_lossy(message));
+                // let mut buffer = [0; 512];
+                // let n = stream.read(&mut buffer).await?;
+                // info!("Received: {}", String::from_utf8_lossy(&buffer[0..n]));
+            }
 
             // Reset errors if one path is good to only skip paths on 3 consecutives errors
             let key = vec![path.id_paths[0], path.id_paths[1]];
@@ -297,6 +324,7 @@ pub async fn sorted_interesting_path_strategy(simulation_amount: u64, path:Strin
                 
                 if result_difference > 20000000.0 {
                     println!("💸💸💸💸💸💸💸💸💸 Begin Execute the tx 💸💸💸💸💸💸💸💸💸");
+                    info!("💸💸💸💸💸💸💸💸💸 Send transaction execution... 💸💸💸💸💸💸💸💸💸");
                     // let _ = create_ata_extendlut_transaction(
                         //     ChainType::Mainnet,
                         //     SendOrSimulate::Send,
@@ -304,21 +332,34 @@ pub async fn sorted_interesting_path_strategy(simulation_amount: u64, path:Strin
                     //     from_str("6nGymM5X1djYERKZtoZ3Yz3thChMVF6jVRDzhhcmxuee").unwrap(),
                     //     tokens_for_tx.clone()
                     // ).await;
-                    let _ = create_and_send_swap_transaction(
-                        SendOrSimulate::Send,
-                        ChainType::Mainnet, 
-                        sp_result.clone()
-                    ).await;
+                    // let _ = create_and_send_swap_transaction(
+                    //     SendOrSimulate::Send,
+                    //     ChainType::Mainnet, 
+                    //     sp_result.clone()
+                    // ).await;
+                    
+                    let now = Utc::now();
+                    let date = format!("{}-{}-{}", now.day(), now.month(), now.year());
 
-                    let path = format!("optimism_transactions/{}-{}.json", tokens_path, counter_sp_result);
-                    let _ = write_file_swap_path_result(path, sp_result);
+                    let path = format!("optimism_transactions/{}-{}-{}.json", date, tokens_path, counter_sp_result);
+                    let _ = write_file_swap_path_result(path.clone(), sp_result);
                     counter_sp_result += 1;
-
+                    
+                    //Send message to Rust execution program
+                    let mut stream = TcpStream::connect("127.0.0.1:8080").await?;
+    
+                    let message = path.as_bytes();
+                    stream.write_all(message).await?;
+                    info!("🛜  Sent: {} tx to executor", String::from_utf8_lossy(message));
+                    // let mut buffer = [0; 512];
+                    // let n = stream.read(&mut buffer).await?;
+                    // info!("Received: {}", String::from_utf8_lossy(&buffer[0..n]));
                 }
             }
             sleep(time::Duration::from_millis(200))
         }
     }
+    // Ok(())
 
 }
 

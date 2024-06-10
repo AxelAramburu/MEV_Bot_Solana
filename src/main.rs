@@ -1,4 +1,6 @@
 use std::collections::HashMap;
+use std::fs::{File, OpenOptions};
+use std::io::{BufWriter, Write};
 use std::path;
 
 use anyhow::Result;
@@ -8,40 +10,98 @@ use solana_sdk::pubkey::Pubkey;
 use tokio::task::JoinSet;
 use solana_client::rpc_client::RpcClient;
 use MEV_Bot_Solana::arbitrage::strategies::{optimism_tx_strategy, run_arbitrage_strategy, sorted_interesting_path_strategy};
+use MEV_Bot_Solana::common::types::InputVec;
 use MEV_Bot_Solana::markets::pools::load_all_pools;
 use MEV_Bot_Solana::transactions::create_transaction::{create_ata_extendlut_transaction, ChainType, SendOrSimulate};
 use MEV_Bot_Solana::{common::constants::Env, transactions::create_transaction::create_and_send_swap_transaction};
 use MEV_Bot_Solana::common::utils::{from_str, get_tokens_infos, setup_logger};
-use MEV_Bot_Solana::arbitrage::types::{SwapPathResult, SwapRouteSimulation, TokenInArb, TokenInfos};
+use MEV_Bot_Solana::arbitrage::types::{SwapPathResult, SwapPathSelected, SwapRouteSimulation, TokenInArb, TokenInfos, VecSwapPathSelected};
 use rust_socketio::{Payload, asynchronous::{Client, ClientBuilder},};
 
+
+use tokio::net::TcpStream;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 // use MEV_Bot_Solana::common::pools::{load_all_pools, Pool};
 
 #[tokio::main]
 async fn main() -> Result<()> {
 
-    let simulation_amount = 3400000000; //3.4 SOL
     //Options
+    // let simulation_amount = 3400000000; //3.4 SOL
+    // let simulation_amount = 1000000000; //1 SOL
+    let simulation_amount = 2000000000; //1 SOL
+
     let massive_strategie: bool = false;
     let best_strategie: bool = true;
     let optimism_strategie: bool = true;
 
-    //Massive strat options
-    let include_1hop: bool = true;
-    let include_2hop: bool = true;
-    let numbers_of_best_paths: usize = 2;
-    let fetch_new_pools: bool = false;
+    //massive_strategie options
+    let fetch_new_pools = false;
+            // Restrict USDC/SOL pools to 20 markets
+    let restrict_sol_usdc = true;
 
     //best_strategie options
-    let path_symbols: String = "SOL-TOPG".to_string();
-    // let path_symbols: String = "SOL-Pepe".to_string();
+    let mut path_best_strategie: String = format!("best_paths_selected/ultra_strategies/0-SOL-michi-POPCAT-WIF-1-SOL-TOPG-2-SOL-BEER.json");
     
     //Optism strategie options
     let optimism_path: String = "SOL-TOPG".to_string();
 
+    // //Send message to Rust execution program
+    // let mut stream = TcpStream::connect("127.0.0.1:8080").await?;
+
+    // let message = path_best_strategie.as_bytes();
+    // stream.write_all(message).await?;
+    // info!("🛜  Sent: {} tx to executor", String::from_utf8_lossy(message));
+
+    let mut inputs_vec = vec![
+        InputVec{
+            tokens_to_arb: vec![
+                TokenInArb{address: String::from("So11111111111111111111111111111111111111112"), symbol: String::from("SOL")}, // Base token here
+                TokenInArb{address: String::from("6D7NaB2xsLd7cauWu1wKk6KBsJohJmP2qZH9GEfVi5Ui"), symbol: String::from("SC")},
+                TokenInArb{address: String::from("EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm"), symbol: String::from("WIF")},
+                TokenInArb{address: String::from("FU1q8vJpZNUrmqsciSjp8bAKKidGsLmouB8CBdf8TKQv"), symbol: String::from("tremp")},
+                // TokenInArb{address: String::from("5BKTP1cWao5dhr8tkKcfPW9mWkKtuheMEAU6nih2jSX"), symbol: String::from("NoHat")},
+            ],
+            include_1hop: false,
+            include_2hop: true,
+            numbers_of_best_paths: 6,
+            // When we have more than 3 tokens it's better to desactivate caused by timeout on multiples getProgramAccounts calls
+            get_fresh_pools_bool: false
+        },
+        InputVec{
+            tokens_to_arb: vec![
+                TokenInArb{address: String::from("So11111111111111111111111111111111111111112"), symbol: String::from("SOL")}, // Base token here
+                TokenInArb{address: String::from("8NH3AfwkizHmbVd83SSxc2YbsFmFL4m2BeepvL6upump"), symbol: String::from("TOPG")},
+            ],
+            include_1hop: true,
+            include_2hop: true,
+            numbers_of_best_paths: 4,
+            get_fresh_pools_bool: true
+        },
+        InputVec{
+            tokens_to_arb: vec![
+                TokenInArb{address: String::from("So11111111111111111111111111111111111111112"), symbol: String::from("SOL")}, // Base token here
+                TokenInArb{address: String::from("AujTJJ7aMS8LDo3bFzoyXDwT3jBALUbu4VZhzZdTZLmG"), symbol: String::from("BEER")},
+            ],
+            include_1hop: true,
+            include_2hop: true,
+            numbers_of_best_paths: 4,
+            get_fresh_pools_bool: true
+        },
+        InputVec{
+            tokens_to_arb: vec![
+                TokenInArb{address: String::from("So11111111111111111111111111111111111111112"), symbol: String::from("SOL")}, // Base token here
+                TokenInArb{address: String::from("69kdRLyP5DTRkpHraaSZAQbWmAwzF9guKjZfzMXzcbAs"), symbol: String::from("USA")},
+            ],
+            include_1hop: true,
+            include_2hop: true,
+            numbers_of_best_paths: 4,
+            get_fresh_pools_bool: true
+        }
+    ];
+
     dotenv::dotenv().ok();
-    // log4rs::init_file("logging_config.yaml", Default::default()).unwrap();
     setup_logger().unwrap();
 
     info!("Starting MEV_Bot_Solana");
@@ -51,48 +111,7 @@ async fn main() -> Result<()> {
     let mut set: JoinSet<()> = JoinSet::new();
     
     // // The first token is the base token (here SOL)
-    let tokens_to_arb: Vec<TokenInArb> = vec![
-        // TokenInArb{address: String::from("So11111111111111111111111111111111111111112"), symbol: String::from("SOL")}, // Base token here
-        // TokenInArb{address: String::from("8wXtPeU6557ETkp9WHFY1n1EcU6NxDvbAggHGsMYiHsB"), symbol: String::from("GME")},
-        // TokenInArb{address: String::from("EKEWAk7hfnwfR8DBb1cTayPPambqyC7pwNiYkaYQKQHp"), symbol: String::from("KITTY")},
-        // TokenInArb{address: String::from("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"), symbol: String::from("USDC")},
-        // TokenInArb{address: String::from("AkVt31h8vgji5wF4nVbq1QmBV5wBoe8JdSoDTkDhQwEw"), symbol: String::from("WSB")},
-        /////////////
-        /////////////
-        /////////////
-        TokenInArb{address: String::from("So11111111111111111111111111111111111111112"), symbol: String::from("SOL")}, // Base token here
-        TokenInArb{address: String::from("8NH3AfwkizHmbVd83SSxc2YbsFmFL4m2BeepvL6upump"), symbol: String::from("TOPG")},
-        // TokenInArb{address: String::from("B5WTLaRwaUQpKk7ir1wniNB6m5o8GgMrimhKMYan2R6B"), symbol: String::from("Pepe")}, //Not the big PEPE
-        // TokenInArb{address: String::from("3S8qX1MsMqRbiwKg2cQyx7nis1oHMgaCuc9c4VfvVdPN"), symbol: String::from("MOTHER")},
-        // TokenInArb{address: String::from("EJ1RbQZs1r1eTAnMTVfgGekgWt6nbHjNGqcn8prxpump"), symbol: String::from("IRENE")},
-        ////////
-        ////////////
-        // TokenInArb{address: String::from("7BgBvyjrZX1YKz4oh9mjb8ZScatkkwb8DzFx7LoiVkM3"), symbol: String::from("SLERF")},
-        // TokenInArb{address: String::from("2VYVwrwSNM8WxbFdPU4KQpZUB9FWCenFFoDqvpHQ7rZE"), symbol: String::from("CUFF")},
-        // TokenInArb{address: String::from("69kdRLyP5DTRkpHraaSZAQbWmAwzF9guKjZfzMXzcbAs"), symbol: String::from("USA")},
-        // TokenInArb{address: String::from("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"), symbol: String::from("USDC")},
-        
-        ///////////////
-        ///////////////
-        ///////////////
-        // TokenInArb{address: String::from("So11111111111111111111111111111111111111112"), symbol: String::from("SOL")}, // Base token here
-        // TokenInArb{address: String::from("5mbK36SZ7J19An8jFochhQS4of8g6BwUjbeCSxBSoWdp"), symbol: String::from("michi")},
-        // TokenInArb{address: String::from("6D7NaB2xsLd7cauWu1wKk6KBsJohJmP2qZH9GEfVi5Ui"), symbol: String::from("SC")},
-        // TokenInArb{address: String::from("EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm"), symbol: String::from("WIF")},
-        // TokenInArb{address: String::from("FU1q8vJpZNUrmqsciSjp8bAKKidGsLmouB8CBdf8TKQv"), symbol: String::from("tremp")},
-        // TokenInArb{address: String::from("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"), symbol: String::from("USDC")},
-    ];
-
-    // let tokens_to_arb: Vec<TokenInArb> = vec![
-    //     TokenInArb{address: String::from("So11111111111111111111111111111111111111112"), symbol: String::from("SOL")}, // Base token here
-    //     // TokenInArb{address: String::from("5mbK36SZ7J19An8jFochhQS4of8g6BwUjbeCSxBSoWdp"), symbol: String::from("michi")},
-    //     // TokenInArb{address: String::from("6D7NaB2xsLd7cauWu1wKk6KBsJohJmP2qZH9GEfVi5Ui"), symbol: String::from("SC")},
-    //     // TokenInArb{address: String::from("EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm"), symbol: String::from("WIF")},
-    //     // TokenInArb{address: String::from("FU1q8vJpZNUrmqsciSjp8bAKKidGsLmouB8CBdf8TKQv"), symbol: String::from("tremp")},
-    //     // TokenInArb{address: String::from("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"), symbol: String::from("USDC")},
-    //     TokenInArb{address: String::from("8NH3AfwkizHmbVd83SSxc2YbsFmFL4m2BeepvL6upump"), symbol: String::from("TOPG")},
-    // ];
-    let tokens_infos: HashMap<String, TokenInfos> = get_tokens_infos(tokens_to_arb.clone()).await;
+    let tokens_to_arb: Vec<TokenInArb> = inputs_vec.clone().into_iter().flat_map(|input| input.tokens_to_arb).collect();
 
     info!("Open Socket IO channel...");
     let env = Env::new();
@@ -129,17 +148,57 @@ async fn main() -> Result<()> {
         
         info!("🪙🪙 Tokens Infos: {:?}", tokens_to_arb);
         info!("📈 Launch arbitrage process...");
-        let result = run_arbitrage_strategy(simulation_amount, include_1hop, include_2hop, numbers_of_best_paths, dexs, tokens_to_arb.clone(), tokens_infos.clone()).await;
-        let (path_for_best_strategie, swap_path_selected) = result.unwrap();
+        let mut vec_best_paths:Vec<String> = Vec::new();
+        for input_iter in inputs_vec.clone() {
+            let tokens_infos: HashMap<String, TokenInfos> = get_tokens_infos(input_iter.tokens_to_arb.clone()).await;
+
+            let result = run_arbitrage_strategy(simulation_amount, input_iter.get_fresh_pools_bool, restrict_sol_usdc, input_iter.include_1hop, input_iter.include_2hop, input_iter.numbers_of_best_paths, dexs.clone(), input_iter.tokens_to_arb.clone(), tokens_infos.clone()).await;
+            let (path_for_best_strategie, swap_path_selected) = result.unwrap();
+            vec_best_paths.push(path_for_best_strategie);
+        }
+        if inputs_vec.clone().len() > 1 {
+            let mut vec_to_ultra_strat: Vec<SwapPathSelected> = Vec::new();
+            let mut ultra_strat_name: String = format!("");
+            for (index, iter_path) in vec_best_paths.iter().enumerate() {
+                let name_raw: Vec<&str> = iter_path.split('/').collect();
+                let name: Vec<&str> = name_raw[1].split('.').collect();
+                if index == 0 {
+                    ultra_strat_name = format!("{}-{}", index, name[0]);
+                } else {
+                    ultra_strat_name = format!("{}-{}-{}", ultra_strat_name, index, name[0]);
+                }
+
+                let file_read = OpenOptions::new().read(true).write(true).open(iter_path)?;
+                let mut paths_vec: VecSwapPathSelected = serde_json::from_reader(&file_read).unwrap();
+                for sp_iter in paths_vec.value {
+                    vec_to_ultra_strat.push(sp_iter);
+                }
+            }
+            let mut path = format!("best_paths_selected/ultra_strategies/{}.json", ultra_strat_name);
+            File::create(path.clone());
+        
+            let file = OpenOptions::new().read(true).write(true).open(path.clone())?;
+            let mut writer = BufWriter::new(&file);
+        
+            let mut content = VecSwapPathSelected{value: vec_to_ultra_strat.clone()};
+            writer.write_all(serde_json::to_string(&content)?.as_bytes())?;
+            writer.flush()?;
+            info!("Data written to '{}' successfully.", path);
+
+            path_best_strategie = path;
+        }
 
         if best_strategie {
-            let _ = sorted_interesting_path_strategy(simulation_amount, path_for_best_strategie, tokens_to_arb.clone(), tokens_infos.clone()).await;
+            let tokens_infos: HashMap<String, TokenInfos> = get_tokens_infos(tokens_to_arb.clone()).await;
+
+            let _ = sorted_interesting_path_strategy(simulation_amount, path_best_strategie.clone(), tokens_to_arb.clone(), tokens_infos.clone()).await;
         }
     }
     
     if best_strategie {
-        let path_best_strategie: String = format!("best_paths_selected/{}.json", path_symbols);
-        let _ = sorted_interesting_path_strategy(simulation_amount, path_best_strategie, tokens_to_arb.clone(), tokens_infos.clone()).await;
+        let tokens_infos: HashMap<String, TokenInfos> = get_tokens_infos(tokens_to_arb.clone()).await;
+
+        let _ = sorted_interesting_path_strategy(simulation_amount, path_best_strategie.clone(), tokens_to_arb.clone(), tokens_infos.clone()).await;
     }
     
     if optimism_strategie {

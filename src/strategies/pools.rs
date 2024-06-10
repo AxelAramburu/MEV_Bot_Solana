@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, thread::sleep, time};
 use log::info;
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::commitment_config::CommitmentConfig;
@@ -14,6 +14,7 @@ pub async fn get_fresh_pools(tokens: Vec<TokenInArb>) -> HashMap<String, Market>
     let mut new_markets: HashMap<String, Market> = HashMap::new();
     let mut count_new_pools = 0;
 
+    println!("Tokens: {:#?}", tokens);
     for (i, token) in tokens.iter().enumerate() {
         // Avoid fetch for the first token (often SOL)
         if i == 0 {
@@ -30,6 +31,7 @@ pub async fn get_fresh_pools(tokens: Vec<TokenInArb>) -> HashMap<String, Market>
             new_markets.insert(orca_pool.0.to_string(), orca_pool.1);
             count_new_pools += 1;
         }
+        sleep(time::Duration::from_millis(1000));
         //Raydium Markets 
         let raydium_res_tokena = fetch_new_raydium_pools(&rpc_client, token.address.clone(), false).await;
         for raydium_pool in raydium_res_tokena {
@@ -41,6 +43,7 @@ pub async fn get_fresh_pools(tokens: Vec<TokenInArb>) -> HashMap<String, Market>
             new_markets.insert(raydium_pool.0.to_string(), raydium_pool.1);
             count_new_pools += 1;
         }
+        sleep(time::Duration::from_millis(1000));
         //Meteora Markets 
         let meteora_res_tokena = fetch_new_meteora_pools(&rpc_client, token.address.clone(), false).await;
         for meteora_pool in meteora_res_tokena {
@@ -52,6 +55,7 @@ pub async fn get_fresh_pools(tokens: Vec<TokenInArb>) -> HashMap<String, Market>
             new_markets.insert(meteora_pool.0.to_string(), meteora_pool.1);
             count_new_pools += 1;
         }
+        sleep(time::Duration::from_millis(1000));
     }
     info!("⚠️⚠️ NO RAYDIUM_CLMM fresh pools !");
     info!("⚠️⚠️ NO ORCA fresh pools !");

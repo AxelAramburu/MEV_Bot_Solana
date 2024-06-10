@@ -4,7 +4,11 @@ use crate::markets::types::{Dex, DexLabel, Market};
 use crate::arbitrage::types::{TokenInArb, Route, SwapPath};
 use crate::strategies::pools::get_fresh_pools;
 
-pub async fn get_markets_arb(dexs: Vec<Dex>, tokens: Vec<TokenInArb>) -> HashMap<String, Market> {
+pub async fn get_markets_arb(get_fresh_pools_bool: bool, restrict_sol_usdc: bool, dexs: Vec<Dex>, tokens: Vec<TokenInArb>) -> HashMap<String, Market> {
+
+    let sol_addr = format!("So11111111111111111111111111111111111111112");
+    let usdc_addr = format!("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
+    let mut sol_usdc_count = 0;
 
     let mut markets_arb: HashMap<String, Market> = HashMap::new();
     let token_addresses: HashSet<String> = tokens.clone().into_iter().map(|token| token.address).collect();
@@ -14,29 +18,48 @@ pub async fn get_markets_arb(dexs: Vec<Dex>, tokens: Vec<TokenInArb>) -> HashMap
             //The first token is the base token (SOL)
             for market_iter in market {
                 if token_addresses.contains(&market_iter.tokenMintA) && token_addresses.contains(&market_iter.tokenMintB) {
-                
-                    // let key = format!("{}/{:?}/{:?}", pair, market_iter.fee, dex.label);
-                    // key string format example: key: "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN/So11111111111111111111111111111111111111112/400/ORCA_WHIRLPOOLS"
-                    let key = format!("{}", market_iter.id);
+                    if restrict_sol_usdc {
+                        if (&market_iter.tokenMintA == &sol_addr || &market_iter.tokenMintA == &usdc_addr) && (&market_iter.tokenMintB == &sol_addr || &market_iter.tokenMintB == &usdc_addr) {
+                            if sol_usdc_count > 20 {
+                                continue;
+                            } else {
+                                let key = format!("{}", market_iter.clone().id);
+                                markets_arb.insert(key, market_iter.clone());
+                                sol_usdc_count += 1;
+                            }
+                        }
+                    }
+                    let key = format!("{}", market_iter.clone().id);
                     // key is the address of the pool
                     markets_arb.insert(key, market_iter);
                 }
             }
         }
     }
-
-    let new_markets_arb = get_fresh_pools(tokens).await;
-
-    let mut count_new_pools = 0;
-
-    for (key, market) in new_markets_arb {
-        if token_addresses.contains(&market.tokenMintA) && token_addresses.contains(&market.tokenMintB) && !markets_arb.contains_key(&key) {
-            // key is the address of the pool
-            markets_arb.insert(key, market);
-            count_new_pools += 1;
+    if get_fresh_pools_bool {
+        let new_markets_arb = get_fresh_pools(tokens).await;
+        let mut count_new_pools = 0;
+    
+        for (key, market) in new_markets_arb {
+            if token_addresses.contains(&market.tokenMintA) && token_addresses.contains(&market.tokenMintB) && !markets_arb.contains_key(&key) {
+                if restrict_sol_usdc {
+                    if (&market.tokenMintA == &sol_addr || &market.tokenMintA == &usdc_addr) && (&market.tokenMintB == &sol_addr || &market.tokenMintB == &usdc_addr) {
+                        if sol_usdc_count > 20 {
+                            continue;
+                        } else {
+                            let key = format!("{}", market.clone().id);
+                            markets_arb.insert(key, market.clone());
+                            sol_usdc_count += 1;
+                        }
+                    }
+                }
+                // key is the address of the pool
+                markets_arb.insert(key, market);
+                count_new_pools += 1;
+            }
         }
+        info!("👀 {} new markets founded !", count_new_pools);
     }
-    info!("👀 {} new markets founded !", count_new_pools);
 
     return markets_arb;
 }
