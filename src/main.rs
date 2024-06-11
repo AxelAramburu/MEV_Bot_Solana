@@ -28,11 +28,11 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 async fn main() -> Result<()> {
 
     //Options
-    // let simulation_amount = 3400000000; //3.4 SOL
+    let simulation_amount = 3500000000; //3.5 SOL
     // let simulation_amount = 1000000000; //1 SOL
-    let simulation_amount = 2000000000; //1 SOL
+    // let simulation_amount = 2000000000; //1 SOL
 
-    let massive_strategie: bool = false;
+    let massive_strategie: bool = true;
     let best_strategie: bool = true;
     let optimism_strategie: bool = true;
 
@@ -42,15 +42,17 @@ async fn main() -> Result<()> {
     let restrict_sol_usdc = true;
 
     //best_strategie options
-    let mut path_best_strategie: String = format!("best_paths_selected/ultra_strategies/0-SOL-michi-POPCAT-WIF-1-SOL-TOPG-2-SOL-BEER.json");
+    // let mut path_best_strategie: String = format!("best_paths_selected/SOL-SOLLY.json");
+    let mut path_best_strategie: String = format!("best_paths_selected/ultra_strategies/0-SOL-SOLLY-1-SOL-RETARDIO.json");
     
-    //Optism strategie options
-    let optimism_path: String = "SOL-TOPG".to_string();
+    
+    //Optism tx to send
+    let optimism_path: String = "optimism_transactions/11-6-2024-SOL-SOLLY-SOL-0.json".to_string();
 
     // //Send message to Rust execution program
     // let mut stream = TcpStream::connect("127.0.0.1:8080").await?;
 
-    // let message = path_best_strategie.as_bytes();
+    // let message = optimism_path.as_bytes();
     // stream.write_all(message).await?;
     // info!("🛜  Sent: {} tx to executor", String::from_utf8_lossy(message));
 
@@ -58,47 +60,57 @@ async fn main() -> Result<()> {
         InputVec{
             tokens_to_arb: vec![
                 TokenInArb{address: String::from("So11111111111111111111111111111111111111112"), symbol: String::from("SOL")}, // Base token here
-                TokenInArb{address: String::from("6D7NaB2xsLd7cauWu1wKk6KBsJohJmP2qZH9GEfVi5Ui"), symbol: String::from("SC")},
-                TokenInArb{address: String::from("EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm"), symbol: String::from("WIF")},
-                TokenInArb{address: String::from("FU1q8vJpZNUrmqsciSjp8bAKKidGsLmouB8CBdf8TKQv"), symbol: String::from("tremp")},
-                // TokenInArb{address: String::from("5BKTP1cWao5dhr8tkKcfPW9mWkKtuheMEAU6nih2jSX"), symbol: String::from("NoHat")},
+                TokenInArb{address: String::from("36CEGUfsUU6XXPHPXi62NKXoQ438qN8o1EZM1dgm6DFP"), symbol: String::from("SOLLY")},
+
             ],
-            include_1hop: false,
+            include_1hop: true,
             include_2hop: true,
-            numbers_of_best_paths: 6,
+            numbers_of_best_paths: 4,
             // When we have more than 3 tokens it's better to desactivate caused by timeout on multiples getProgramAccounts calls
             get_fresh_pools_bool: false
         },
         InputVec{
             tokens_to_arb: vec![
                 TokenInArb{address: String::from("So11111111111111111111111111111111111111112"), symbol: String::from("SOL")}, // Base token here
-                TokenInArb{address: String::from("8NH3AfwkizHmbVd83SSxc2YbsFmFL4m2BeepvL6upump"), symbol: String::from("TOPG")},
+                TokenInArb{address: String::from("BX9yEgW8WkoWV8SvqTMMCynkQWreRTJ9ZS81dRXYnnR9"), symbol: String::from("SPIKE")},
+
             ],
             include_1hop: true,
             include_2hop: true,
             numbers_of_best_paths: 4,
-            get_fresh_pools_bool: true
+            // When we have more than 3 tokens it's better to desactivate caused by timeout on multiples getProgramAccounts calls
+            get_fresh_pools_bool: false
         },
-        InputVec{
-            tokens_to_arb: vec![
-                TokenInArb{address: String::from("So11111111111111111111111111111111111111112"), symbol: String::from("SOL")}, // Base token here
-                TokenInArb{address: String::from("AujTJJ7aMS8LDo3bFzoyXDwT3jBALUbu4VZhzZdTZLmG"), symbol: String::from("BEER")},
-            ],
-            include_1hop: true,
-            include_2hop: true,
-            numbers_of_best_paths: 4,
-            get_fresh_pools_bool: true
-        },
-        InputVec{
-            tokens_to_arb: vec![
-                TokenInArb{address: String::from("So11111111111111111111111111111111111111112"), symbol: String::from("SOL")}, // Base token here
-                TokenInArb{address: String::from("69kdRLyP5DTRkpHraaSZAQbWmAwzF9guKjZfzMXzcbAs"), symbol: String::from("USA")},
-            ],
-            include_1hop: true,
-            include_2hop: true,
-            numbers_of_best_paths: 4,
-            get_fresh_pools_bool: true
-        }
+        //////////////
+        //////////////
+        //////////////
+        //////////////
+        //////////////
+        //////////////
+        // InputVec{
+        //     tokens_to_arb: vec![
+        //         TokenInArb{address: String::from("So11111111111111111111111111111111111111112"), symbol: String::from("SOL")}, // Base token here
+        //         TokenInArb{address: String::from("3psH1Mj1f7yUfaD5gh6Zj7epE8hhrMkMETgv5TshQA4o"), symbol: String::from("boden")},
+        //         TokenInArb{address: String::from("FU1q8vJpZNUrmqsciSjp8bAKKidGsLmouB8CBdf8TKQv"), symbol: String::from("tremp")},
+        //         TokenInArb{address: String::from("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"), symbol: String::from("USDC")},
+        //         // TokenInArb{address: String::from("5BKTP1cWao5dhr8tkKcfPW9mWkKtuheMEAU6nih2jSX"), symbol: String::from("NoHat")},
+        //     ],
+        //     include_1hop: true,
+        //     include_2hop: true,
+        //     numbers_of_best_paths: 4,
+        //     // When we have more than 3 tokens it's better to desactivate caused by timeout on multiples getProgramAccounts calls
+        //     get_fresh_pools_bool: false
+        // },
+        // InputVec{
+        //     tokens_to_arb: vec![
+        //         TokenInArb{address: String::from("So11111111111111111111111111111111111111112"), symbol: String::from("SOL")}, // Base token here
+        //         TokenInArb{address: String::from("8NH3AfwkizHmbVd83SSxc2YbsFmFL4m2BeepvL6upump"), symbol: String::from("TOPG")},
+        //     ],
+        //     include_1hop: true,
+        //     include_2hop: true,
+        //     numbers_of_best_paths: 2,
+        //     get_fresh_pools_bool: false
+        // },
     ];
 
     dotenv::dotenv().ok();
