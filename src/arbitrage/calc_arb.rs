@@ -20,7 +20,7 @@ pub async fn get_markets_arb(get_fresh_pools_bool: bool, restrict_sol_usdc: bool
                 if token_addresses.contains(&market_iter.tokenMintA) && token_addresses.contains(&market_iter.tokenMintB) {
                     if restrict_sol_usdc {
                         if (&market_iter.tokenMintA == &sol_addr || &market_iter.tokenMintA == &usdc_addr) && (&market_iter.tokenMintB == &sol_addr || &market_iter.tokenMintB == &usdc_addr) {
-                            if sol_usdc_count > 20 {
+                            if sol_usdc_count > 2 {
                                 continue;
                             } else {
                                 let key = format!("{}", market_iter.clone().id);
@@ -44,7 +44,7 @@ pub async fn get_markets_arb(get_fresh_pools_bool: bool, restrict_sol_usdc: bool
             if token_addresses.contains(&market.tokenMintA) && token_addresses.contains(&market.tokenMintB) && !markets_arb.contains_key(&key) {
                 if restrict_sol_usdc {
                     if (&market.tokenMintA == &sol_addr || &market.tokenMintA == &usdc_addr) && (&market.tokenMintB == &sol_addr || &market.tokenMintB == &usdc_addr) {
-                        if sol_usdc_count > 20 {
+                        if sol_usdc_count > 2 {
                             continue;
                         } else {
                             let key = format!("{}", market.clone().id);
