@@ -91,7 +91,7 @@ impl OrcaDexWhirpools {
                 tokenVaultA: from_Pubkey(pool.token_vault_a.clone()),
                 tokenMintB: from_Pubkey(pool.token_mint_b.clone()),
                 tokenVaultB: from_Pubkey(pool.token_vault_b.clone()),
-                fee: pool.fee_rate.clone() as u128,
+                fee: pool.fee_rate.clone() as u64,
                 dexLabel: DexLabel::ORCA_WHIRLPOOLS,
                 id: from_Pubkey(pool.address.clone()),
                 //TODO: None here, be sure to refresh data after
@@ -153,7 +153,7 @@ pub async fn fetch_new_orca_whirpools(rpc_client: &RpcClient, token: String, on_
             tokenVaultA: from_Pubkey(whirpool_account.token_vault_a.clone()),
             tokenMintB: from_Pubkey(whirpool_account.token_mint_b.clone()),
             tokenVaultB: from_Pubkey(whirpool_account.token_vault_b.clone()),
-            fee: whirpool_account.fee_rate.clone() as u128,
+            fee: whirpool_account.fee_rate.clone() as u64,
             dexLabel: DexLabel::ORCA_WHIRLPOOLS,
             id: from_Pubkey(account.0.clone()),
             account_data: Some(account.1.data),

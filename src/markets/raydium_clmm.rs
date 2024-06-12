@@ -47,7 +47,7 @@ impl RaydiumClmmDEX {
                 tokenMintB: pool.mint_b.clone(),
                 tokenVaultB: pool.vault_b.clone(),
                 dexLabel: DexLabel::RAYDIUM_CLMM,
-                fee: pool.amm_config.trade_fee_rate.clone() as u128,
+                fee: pool.amm_config.trade_fee_rate.clone() as u64,
                 id: pool.id.clone(),
                 account_data: None,
                 liquidity: None,

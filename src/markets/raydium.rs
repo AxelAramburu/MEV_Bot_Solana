@@ -58,7 +58,7 @@ impl RaydiumDEX {
                 tokenMintB: pool.quote_mint.clone(),
                 tokenVaultB: pool.quote_mint.clone(),
                 dexLabel: DexLabel::RAYDIUM,
-                fee: pool.volume7d.clone() as u128,         //Not accurate, change this
+                fee: pool.volume7d.clone() as u64,         //Not accurate, change this
                 id: pool.amm_id.clone(),
                 account_data: Some(serialized_person),
                 liquidity: Some(pool.liquidity as u64),
@@ -166,7 +166,7 @@ pub async fn fetch_new_raydium_pools(rpc_client: &RpcClient, token: String, on_t
             tokenVaultA: from_Pubkey(raydium_account.coin_vault.clone()),
             tokenMintB: from_Pubkey(raydium_account.pc_vault_mint.clone()),
             tokenVaultB: from_Pubkey(raydium_account.pc_vault.clone()),
-            fee: fees,
+            fee: fees as u64,
             dexLabel: DexLabel::RAYDIUM,
             id: from_Pubkey(account.0.clone()),
             account_data: Some(account.1.data),

@@ -8,15 +8,12 @@ use crate::arbitrage::types::{SwapPathResult, VecSwapPathSelected};
 
 pub async fn insert_swap_path_result_collection(collection_name: &str, sp_result: SwapPathResult) -> Result<()> {
     let db_name = "MEV_Bot";
-    println!("Coucou1");
     let client_options = ClientOptions::parse("mongodb://localhost:27017").await.unwrap();
     let client = MongoDbCLient::with_options(client_options).unwrap();
-    println!("Coucou2");
 
     let db = client.database(db_name);
     let coll: Collection<SwapPathResult> = db.collection::<SwapPathResult>(collection_name);
     
-    println!("Coucou3");
 
     coll.insert_one(sp_result, None).await.unwrap();
     info!("📊 {} writed in DB", collection_name);
