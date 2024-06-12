@@ -75,7 +75,7 @@ impl OrcaDex {
                 tokenVaultA: from_Pubkey(pool.token_account_a.clone()),
                 tokenMintB: from_Pubkey(pool.mint_b.clone()),
                 tokenVaultB: from_Pubkey(pool.token_account_b.clone()),
-                fee: fee.clone() as u128,
+                fee: fee.clone() as u64,
                 dexLabel: DexLabel::ORCA,
                 id: from_Pubkey(pool.token_pool.clone()),
                 account_data: None,

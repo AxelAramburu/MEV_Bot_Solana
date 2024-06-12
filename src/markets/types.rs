@@ -2,7 +2,6 @@ use std::collections::HashMap;
 use crate::markets::utils::toPairString;
 use serde::{Deserialize, Serialize};
 use strum_macros::EnumIter;
-use crate::arbitrage::types::bson_u128;
 
 #[derive(Debug, Clone, EnumIter, Serialize, Deserialize, Eq, PartialEq, Hash)]
 pub enum DexLabel {
@@ -41,8 +40,7 @@ pub struct Market {
     pub tokenMintB: String,
     pub tokenVaultB: String,
     pub dexLabel: DexLabel,
-    #[serde(with = "bson_u128")]
-    pub fee: u128,
+    pub fee: u64,
     pub id: String,
     pub account_data: Option<Vec<u8>>,
     pub liquidity: Option<u64>,
