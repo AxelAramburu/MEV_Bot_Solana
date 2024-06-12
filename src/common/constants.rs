@@ -17,6 +17,7 @@ pub struct Env {
     pub simulator_url: String,
     pub ws_simulator_url: String,
     pub payer_keypair_path: String,
+    pub database_name: String,
 
 }
 
@@ -34,6 +35,7 @@ impl Env {
             simulator_url: get_env("SIMULATOR_URL"),
             ws_simulator_url: get_env("WS_SIMULATOR_URL"),
             payer_keypair_path: get_env("PAYER_KEYPAIR_PATH"),
+            database_name: get_env("DATABASE_NAME")
         }
     }
 }

@@ -59,7 +59,7 @@ impl MeteoraDEX {
                 fee: fee.clone() as u128,        
                 id: pool.address.clone(),
                 account_data: Some(serialized_data),
-                liquidity: Some(liquidity as u128),
+                liquidity: Some(liquidity as u64),
             };
 
             let pair_string = toPairString(pool.mint_x, pool.mint_y);
@@ -158,7 +158,7 @@ pub async fn fetch_new_meteora_pools(rpc_client: &RpcClient, token: String, on_t
             fee: 0 as u128,        
             id: from_Pubkey(account.0).clone(),
             account_data: Some(account.1.data),
-            liquidity: Some(666 as u128),
+            liquidity: Some(666 as u64),
         };
         new_markets.push((account.0, market));
     }

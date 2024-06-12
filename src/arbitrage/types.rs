@@ -1,4 +1,5 @@
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use mongodb::bson;
 
 use crate::markets::types::{DexLabel, Market};
 
@@ -16,7 +17,7 @@ pub struct Route {
     pub token_0to1: bool,
     pub tokenIn: String,
     pub tokenOut: String,
-    pub fee: u128,
+    pub fee: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -24,7 +25,6 @@ pub struct SwapPath {
     pub hops: u8,
     pub paths: Vec<Route>,
     pub id_paths: Vec<u32>,
-
 }
 #[derive(Debug, Clone)]
 pub struct TokenInfos {
@@ -74,4 +74,41 @@ pub struct SwapPathSelected {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VecSwapPathSelected {
     pub value: Vec<SwapPathSelected>
+}
+
+pub mod bson_u128 {
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+    use mongodb::bson::spec::BinarySubtype;
+    use mongodb::bson::RawBinaryRef;
+
+    const U128_SUBTYPE: BinarySubtype = BinarySubtype::Generic;
+
+    pub fn serialize<S>(t: &u128, s: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let bytes = t.to_be_bytes();
+        RawBinaryRef {
+            subtype: U128_SUBTYPE,
+            bytes: &bytes,
+        }
+        .serialize(s)
+    }
+
+    pub fn deserialize<'de, D>(d: D) -> Result<u128, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        // `try_into` is converting `&[u8]` into `&[u8; 16]`
+        RawBinaryRef::deserialize(d).and_then(|rbr| match rbr.bytes.try_into() {
+            Ok(&bytes) => {
+                if rbr.subtype == U128_SUBTYPE {
+                    Ok(u128::from_be_bytes(bytes))
+                } else {
+                    Err(serde::de::Error::custom("wrong binary subtype"))
+                }
+            }
+            Err(_) => Err(serde::de::Error::custom("incorrect number of bytes")),
+        })
+    }
 }

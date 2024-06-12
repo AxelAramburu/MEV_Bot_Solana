@@ -142,9 +142,9 @@ pub fn compute_routes(markets_arb: HashMap<String, Market>) -> Vec<Route> {
     let mut all_routes: Vec<Route> = Vec::new();
     let mut counter: u32 = 0;
     for (key, market) in markets_arb {
-        let route_0to1 = Route{id: counter, dex: market.clone().dexLabel, pool_address: market.clone().id, token_0to1: true, tokenIn: market.clone().tokenMintA, tokenOut: market.clone().tokenMintB, fee: market.clone().fee};
+        let route_0to1 = Route{id: counter, dex: market.clone().dexLabel, pool_address: market.clone().id, token_0to1: true, tokenIn: market.clone().tokenMintA, tokenOut: market.clone().tokenMintB, fee: market.clone().fee as u64};
         counter += 1;        
-        let route_1to0 = Route{id: counter, dex: market.clone().dexLabel, pool_address: market.clone().id, token_0to1: false, tokenIn: market.clone().tokenMintB, tokenOut: market.clone().tokenMintA, fee: market.clone().fee};
+        let route_1to0 = Route{id: counter, dex: market.clone().dexLabel, pool_address: market.clone().id, token_0to1: false, tokenIn: market.clone().tokenMintB, tokenOut: market.clone().tokenMintA, fee: market.clone().fee as u64};
         counter += 1; 
        
         all_routes.push(route_0to1);

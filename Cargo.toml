@@ -74,10 +74,9 @@ plotters = { version = "^0.3.5", default_features = false, features = ["evcxr", 
 piston_window = "0.132.0"
 plotters-piston = "0.3.0"
 systemstat = "0.2.3"
+mongodb = {version = "2.8.2", default-features = false, features = ["async-std-runtime"] }
 
 [profile.release]
 codegen-units = 1
 lto = "fat"
-
-
 

@@ -96,7 +96,7 @@ impl OrcaDexWhirpools {
                 id: from_Pubkey(pool.address.clone()),
                 //TODO: None here, be sure to refresh data after
                 account_data: None, 
-                liquidity: Some(pool.liquidity),
+                liquidity: Some(pool.liquidity as u64),
             };
 
             let pair_string = toPairString(from_Pubkey(pool.token_mint_a), from_Pubkey(pool.token_mint_b));
@@ -157,7 +157,7 @@ pub async fn fetch_new_orca_whirpools(rpc_client: &RpcClient, token: String, on_
             dexLabel: DexLabel::ORCA_WHIRLPOOLS,
             id: from_Pubkey(account.0.clone()),
             account_data: Some(account.1.data),
-            liquidity: Some(whirpool_account.liquidity),
+            liquidity: Some(whirpool_account.liquidity as u64),
         };
         new_markets.push((account.0, market));
     }

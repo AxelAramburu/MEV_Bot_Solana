@@ -61,7 +61,7 @@ impl RaydiumDEX {
                 fee: pool.volume7d.clone() as u128,         //Not accurate, change this
                 id: pool.amm_id.clone(),
                 account_data: Some(serialized_person),
-                liquidity: Some(pool.liquidity as u128),
+                liquidity: Some(pool.liquidity as u64),
             };
 
             let pair_string = toPairString(pool.base_mint, pool.quote_mint);
@@ -170,7 +170,7 @@ pub async fn fetch_new_raydium_pools(rpc_client: &RpcClient, token: String, on_t
             dexLabel: DexLabel::RAYDIUM,
             id: from_Pubkey(account.0.clone()),
             account_data: Some(account.1.data),
-            liquidity: Some(666 as u128),
+            liquidity: Some(666 as u64),
         };
         new_markets.push((account.0, market));
     }
