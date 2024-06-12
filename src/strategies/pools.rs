@@ -21,41 +21,51 @@ pub async fn get_fresh_pools(tokens: Vec<TokenInArb>) -> HashMap<String, Market>
             continue;
         }
         //Orca Whirpools 
+        println!("1 GetProgramAccounts Orca");
         let orca_res_tokena = fetch_new_orca_whirpools(&rpc_client, token.address.clone(), false).await;
         for orca_pool in orca_res_tokena {
             new_markets.insert(orca_pool.0.to_string(), orca_pool.1);
             count_new_pools += 1;
         }
+        sleep(time::Duration::from_millis(2000));
+        println!("1 GetProgramAccounts Orca");
+
         let orca_res_tokenb = fetch_new_orca_whirpools(&rpc_client, token.address.clone(), true).await;
         for orca_pool in orca_res_tokenb {
             new_markets.insert(orca_pool.0.to_string(), orca_pool.1);
             count_new_pools += 1;
         }
-        sleep(time::Duration::from_millis(1000));
+        sleep(time::Duration::from_millis(2000));
+        println!("1 GetProgramAccounts Raydium");
         //Raydium Markets 
         let raydium_res_tokena = fetch_new_raydium_pools(&rpc_client, token.address.clone(), false).await;
         for raydium_pool in raydium_res_tokena {
             new_markets.insert(raydium_pool.0.to_string(), raydium_pool.1);
             count_new_pools += 1;
         }
+        sleep(time::Duration::from_millis(2000));
+        println!("1 GetProgramAccounts Raydium");
         let raydium_res_tokenb = fetch_new_raydium_pools(&rpc_client, token.address.clone(), true).await;
         for raydium_pool in raydium_res_tokenb {
             new_markets.insert(raydium_pool.0.to_string(), raydium_pool.1);
             count_new_pools += 1;
         }
-        sleep(time::Duration::from_millis(1000));
+        sleep(time::Duration::from_millis(2000));
+        println!("1 GetProgramAccounts Meteora");
         //Meteora Markets 
         let meteora_res_tokena = fetch_new_meteora_pools(&rpc_client, token.address.clone(), false).await;
         for meteora_pool in meteora_res_tokena {
             new_markets.insert(meteora_pool.0.to_string(), meteora_pool.1);
             count_new_pools += 1;
         }
+        sleep(time::Duration::from_millis(2000));
+        println!("1 GetProgramAccounts Meteora");
         let meteora_res_tokenb = fetch_new_meteora_pools(&rpc_client, token.address.clone(), true).await;
         for meteora_pool in meteora_res_tokenb {
             new_markets.insert(meteora_pool.0.to_string(), meteora_pool.1);
             count_new_pools += 1;
         }
-        sleep(time::Duration::from_millis(1000));
+        sleep(time::Duration::from_millis(2000));
     }
     info!("⚠️⚠️ NO RAYDIUM_CLMM fresh pools !");
     info!("⚠️⚠️ NO ORCA fresh pools !");

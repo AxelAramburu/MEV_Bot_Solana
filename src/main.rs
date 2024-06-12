@@ -10,6 +10,7 @@ use solana_sdk::pubkey::Pubkey;
 use tokio::task::JoinSet;
 use solana_client::rpc_client::RpcClient;
 use MEV_Bot_Solana::arbitrage::strategies::{optimism_tx_strategy, run_arbitrage_strategy, sorted_interesting_path_strategy};
+use MEV_Bot_Solana::common::database::insert_vec_swap_path_selected_collection;
 use MEV_Bot_Solana::common::types::InputVec;
 use MEV_Bot_Solana::markets::pools::load_all_pools;
 use MEV_Bot_Solana::transactions::create_transaction::{create_ata_extendlut_transaction, ChainType, SendOrSimulate};
@@ -21,6 +22,9 @@ use rust_socketio::{Payload, asynchronous::{Client, ClientBuilder},};
 
 use tokio::net::TcpStream;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+use mongodb::bson::doc;
+use mongodb::{Client as MongoDbCLient, options::ClientOptions};
 
 // use MEV_Bot_Solana::common::pools::{load_all_pools, Pool};
 
@@ -38,12 +42,12 @@ async fn main() -> Result<()> {
 
     //massive_strategie options
     let fetch_new_pools = false;
-            // Restrict USDC/SOL pools to 20 markets
+            // Restrict USDC/SOL pools to 2 markets
     let restrict_sol_usdc = true;
 
     //best_strategie options
     // let mut path_best_strategie: String = format!("best_paths_selected/SOL-SOLLY.json");
-    let mut path_best_strategie: String = format!("best_paths_selected/ultra_strategies/0-SOL-SOLLY-1-SOL-RETARDIO.json");
+    let mut path_best_strategie: String = format!("best_paths_selected/ultra_strategies/0-SOL-SOLLY-1-SOL-SPIKE-2-SOL-AMC-GME.json");
     
     
     //Optism tx to send
@@ -60,7 +64,19 @@ async fn main() -> Result<()> {
         InputVec{
             tokens_to_arb: vec![
                 TokenInArb{address: String::from("So11111111111111111111111111111111111111112"), symbol: String::from("SOL")}, // Base token here
-                TokenInArb{address: String::from("36CEGUfsUU6XXPHPXi62NKXoQ438qN8o1EZM1dgm6DFP"), symbol: String::from("SOLLY")},
+                TokenInArb{address: String::from("4Cnk9EPnW5ixfLZatCPJjDB1PUtcRpVVgTQukm9epump"), symbol: String::from("DADDY-ANSEM")},
+ 
+            ],
+            include_1hop: true,
+            include_2hop: true,
+            numbers_of_best_paths: 4,
+            // When we have more than 3 tokens it's better to desactivate caused by timeout on multiples getProgramAccounts calls
+            get_fresh_pools_bool: false
+        },
+        InputVec{
+            tokens_to_arb: vec![
+                TokenInArb{address: String::from("So11111111111111111111111111111111111111112"), symbol: String::from("SOL")}, // Base token here
+                TokenInArb{address: String::from("2J5uSgqgarWoh7QDBmHSDA3d7UbfBKDZsdy1ypTSpump"), symbol: String::from("DADDY-TATE")},
 
             ],
             include_1hop: true,
@@ -77,7 +93,7 @@ async fn main() -> Result<()> {
             ],
             include_1hop: true,
             include_2hop: true,
-            numbers_of_best_paths: 4,
+            numbers_of_best_paths: 2,
             // When we have more than 3 tokens it's better to desactivate caused by timeout on multiples getProgramAccounts calls
             get_fresh_pools_bool: false
         },
@@ -87,20 +103,20 @@ async fn main() -> Result<()> {
         //////////////
         //////////////
         //////////////
-        // InputVec{
-        //     tokens_to_arb: vec![
-        //         TokenInArb{address: String::from("So11111111111111111111111111111111111111112"), symbol: String::from("SOL")}, // Base token here
-        //         TokenInArb{address: String::from("3psH1Mj1f7yUfaD5gh6Zj7epE8hhrMkMETgv5TshQA4o"), symbol: String::from("boden")},
-        //         TokenInArb{address: String::from("FU1q8vJpZNUrmqsciSjp8bAKKidGsLmouB8CBdf8TKQv"), symbol: String::from("tremp")},
-        //         TokenInArb{address: String::from("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"), symbol: String::from("USDC")},
-        //         // TokenInArb{address: String::from("5BKTP1cWao5dhr8tkKcfPW9mWkKtuheMEAU6nih2jSX"), symbol: String::from("NoHat")},
-        //     ],
-        //     include_1hop: true,
-        //     include_2hop: true,
-        //     numbers_of_best_paths: 4,
-        //     // When we have more than 3 tokens it's better to desactivate caused by timeout on multiples getProgramAccounts calls
-        //     get_fresh_pools_bool: false
-        // },
+        InputVec{
+            tokens_to_arb: vec![
+                TokenInArb{address: String::from("So11111111111111111111111111111111111111112"), symbol: String::from("SOL")}, // Base token here
+                TokenInArb{address: String::from("9jaZhJM6nMHTo4hY9DGabQ1HNuUWhJtm7js1fmKMVpkN"), symbol: String::from("AMC")},
+                TokenInArb{address: String::from("8wXtPeU6557ETkp9WHFY1n1EcU6NxDvbAggHGsMYiHsB"), symbol: String::from("GME")},
+                // TokenInArb{address: String::from("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"), symbol: String::from("USDC")},
+                // TokenInArb{address: String::from("5BKTP1cWao5dhr8tkKcfPW9mWkKtuheMEAU6nih2jSX"), symbol: String::from("NoHat")},
+            ],
+            include_1hop: true,
+            include_2hop: true,
+            numbers_of_best_paths: 4,
+            // When we have more than 3 tokens it's better to desactivate caused by timeout on multiples getProgramAccounts calls
+            get_fresh_pools_bool: false
+        },
         // InputVec{
         //     tokens_to_arb: vec![
         //         TokenInArb{address: String::from("So11111111111111111111111111111111111111112"), symbol: String::from("SOL")}, // Base token here
@@ -196,6 +212,8 @@ async fn main() -> Result<()> {
             writer.write_all(serde_json::to_string(&content)?.as_bytes())?;
             writer.flush()?;
             info!("Data written to '{}' successfully.", path);
+
+            insert_vec_swap_path_selected_collection("ultra_strategies", content).await;
 
             path_best_strategie = path;
         }

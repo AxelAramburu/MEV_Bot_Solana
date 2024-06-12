@@ -3,12 +3,13 @@ use borsh::error;
 use chrono::{Datelike, Utc};
 use indicatif::{ProgressBar, ProgressStyle};
 use itertools::enumerate;
+use mongodb::bson::doc;
 use rust_socketio::{asynchronous::{Client}};
 use solana_sdk::pubkey::Pubkey;
 use std::io::{BufWriter, Write};
 use crate::{arbitrage::{
     calc_arb::{calculate_arb, get_markets_arb}, simulate::simulate_path, streams::get_fresh_accounts_states, types::{SwapPathResult, SwapPathSelected, SwapRouteSimulation, VecSwapPathResult, VecSwapPathSelected}
-}, common::utils::{from_str, write_file_swap_path_result}, transactions::create_transaction::{self, create_and_send_swap_transaction, create_ata_extendlut_transaction, ChainType, SendOrSimulate}};
+}, common::{database::{insert_vec_swap_path_selected_collection, insert_swap_path_result_collection}, utils::{from_str, write_file_swap_path_result}}, transactions::create_transaction::{self, create_and_send_swap_transaction, create_ata_extendlut_transaction, ChainType, SendOrSimulate}};
 use crate::markets::types::{Dex,Market};
 use super::{simulate::simulate_path_precision, types::{SwapPath, TokenInArb, TokenInfos}};
 use log::{debug, error, info};
@@ -112,6 +113,7 @@ pub async fn run_arbitrage_strategy(simulation_amount: u64, get_fresh_pools_bool
                 let date = format!("{}-{}-{}", now.day(), now.month(), now.year());
 
                 let path = format!("optimism_transactions/{}-{}-{}.json", date, tokens_path.clone(), counter_sp_result);
+                let _ = insert_swap_path_result_collection("optimism_transactions", sp_result.clone()).await;  
                 let _ = write_file_swap_path_result(path.clone(), sp_result);
                 counter_sp_result += 1;
                 
@@ -213,16 +215,20 @@ pub async fn run_arbitrage_strategy(simulation_amount: u64, get_fresh_pools_bool
             tokens_list = format!("{}-{}", tokens_list, tokens[index].symbol.clone());
         }
     }
+
+    
     let mut path = format!("best_paths_selected/{}.json", tokens_list);
     File::create(path.clone());
-
+    
     let file = OpenOptions::new().read(true).write(true).open(path.clone())?;
     let mut writer = BufWriter::new(&file);
-
+    
     let mut content = VecSwapPathSelected{value: best_paths_for_strat.clone()};
     writer.write_all(serde_json::to_string(&content)?.as_bytes())?;
     writer.flush()?;
     info!("Data written to '{}' successfully.", path);
+    
+    insert_vec_swap_path_selected_collection("best_paths_selected", content.clone()).await;
 
     return_path = path;
     bar.finish();
